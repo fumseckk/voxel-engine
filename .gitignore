@@ -1,0 +1,8 @@
+_deps/
+CMakeFiles/
+build/
+.vscode/
+CMakeCache.txt
+cmake_install.cmake
+game
+Makefile

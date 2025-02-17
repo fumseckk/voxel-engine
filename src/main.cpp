@@ -16,10 +16,12 @@ const float Z_FAR = 100.0f;
 const float FOV_DEGREES = 45.0f;
 const float aspectRatio = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
 
+extern Window window; // todo does this work ? check with input
+
 int main(int argc, char** argv) {
-  Window window(WINDOW_WIDTH, WINDOW_HEIGHT, "OpenGLProgram");
   glEnable(GL_DEPTH_TEST);
 
+  Camera camera = Camera();
   Shader shader("resources/shaders/default.vert", "resources/shaders/default.frag");
   Texture tex("resources/textures/wooden_container.jpg");
 
@@ -30,8 +32,8 @@ int main(int argc, char** argv) {
   cubeVAO.attr(cubeVBO, 1, 2, GL_FLOAT, 5 * sizeof(float), 3 * sizeof(float));
 
   while (!glfwWindowShouldClose(window)) {
-    // Input
-    window.processInput();
+    window.begin_frame();
+    camera.move();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.4f, 0.3f, 0.2f, 1.0f);
@@ -40,21 +42,19 @@ int main(int argc, char** argv) {
     // Build shader uniforms
     shader.use();
     shader.uniform_texture2D("tex", tex, 0);
-    glm::mat4 m = glm::mat4(1.0f);
-    glm::mat4 v = glm::mat4(1.0f);
-    v = glm::translate(v, glm::vec3(0.0f, 0.0f, -5.0f)); // place camera a bit backwards
-    m = glm::rotate(m, glm::radians(-40.0f), glm::vec3(1.0f, 1.0f, 1.0f)); // rotate object
+    glm::mat4 m = glm::rotate(glm::mat4(1.0f), glm::radians(-40.0f), glm::vec3(1.0f, 1.0f, 1.0f)); // rotate object
+    glm::mat4 v = camera.get_view_matrix();
+    glm::mat4 p = camera.get_perspective_matrix();
+    ;
     shader.uniform_mat4("m", m);
     shader.uniform_mat4("v", v);
-    shader.uniform_mat4("p", glm::perspective(glm::radians(FOV_DEGREES), (float)WINDOW_WIDTH/(float)WINDOW_HEIGHT, Z_NEAR, Z_FAR));
+    shader.uniform_mat4("p", p);
 
     // Draw
     cubeVAO.bind();
     glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(float));
 
-    // End frame
-    glfwSwapBuffers(window);
-    glfwPollEvents();
+    window.end_frame();
   }
 
   // Terminate

@@ -22,7 +22,7 @@ struct Button {
 
 struct Mouse {
   Button buttons[GLFW_MOUSE_BUTTON_LAST];
-  glm::vec2 position, delta_position;
+  glm::vec2 position, delta_position = glm::vec2(0.0f, 0.0f);
 };
 
 struct Keyboard {
@@ -68,6 +68,9 @@ class Window {
     // Set up viewport
     glViewport(0, 0, width, height);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    mouse.position = glm::vec2(xpos, ypos);
 
     // Set up callbacks
     glfwSetFramebufferSizeCallback(window, _size_callback);
@@ -118,9 +121,10 @@ class Window {
     this->height = height;
   }
 
+
   void cursor_callback(int xpos, int ypos) {
     glm::vec2 pos(xpos, ypos);
-    mouse.delta_position = mouse.position - pos;
+    mouse.delta_position = glm::clamp(mouse.position - pos, -100.0f, 100.0f);
     mouse.position = pos;
   }
 

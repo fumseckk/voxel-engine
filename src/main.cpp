@@ -21,7 +21,7 @@ extern Window window; // todo does this work ? check with input
 int main(int argc, char** argv) {
   glEnable(GL_DEPTH_TEST);
 
-  Camera camera = Camera();
+  Camera camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));
   Shader shader("resources/shaders/default.vert", "resources/shaders/default.frag");
   Texture tex("resources/textures/wooden_container.jpg");
 

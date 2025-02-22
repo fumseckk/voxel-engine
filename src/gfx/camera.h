@@ -27,7 +27,7 @@ class Camera {
     this->position = pos;
     this->yaw = yaw;
     this->pitch = pitch;
-    this->fov = glm::radians(45.0f);
+    this->fov = glm::radians(100.0f);
     this->znear = 0.01f;
     this->zfar = 100.0f;
     this->aspect_ratio = window.width / window.height;
@@ -46,12 +46,12 @@ class Camera {
 
   void keyboard_move() {
     float vel = mvt_speed * window.frame_delta;
-    if (window.keyboard.keys[GLFW_KEY_W].down) position += front * vel;
-    if (window.keyboard.keys[GLFW_KEY_A].down) position -= right * vel;
-    if (window.keyboard.keys[GLFW_KEY_S].down) position -= front * vel;
-    if (window.keyboard.keys[GLFW_KEY_D].down) position += right * vel;
+    if (window.keyboard.keys[GLFW_KEY_W].down) position += glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_A].down) position -= glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_S].down) position -= glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_D].down) position += glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * vel;
     if (window.keyboard.keys[GLFW_KEY_SPACE].down) position += world_up * vel;
-    if (window.keyboard.keys[GLFW_KEY_LEFT_SHIFT].down)
+    if (window.keyboard.keys[GLFW_KEY_LEFT_CONTROL].down)
       position -= world_up * vel;
   }
 

@@ -4,6 +4,7 @@
 #include "gfx/gfx.h"
 #include "ui/ui.h"
 #include "cube.h"
+#include "world/chunk.cpp"
 
 // TODO
 // chunk class
@@ -20,11 +21,7 @@ int main(int argc, char** argv) {
   Texture tex("resources/textures/wooden_container.jpg");
   // UI ui(window);
 
-  VAO cubeVAO;
-  VBO cubeVBO(GL_ARRAY_BUFFER, false);
-  cubeVBO.buffer(vertices, sizeof(vertices));
-  cubeVAO.attr(cubeVBO, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
-  cubeVAO.attr(cubeVBO, 1, 2, GL_FLOAT, 5 * sizeof(float), 3 * sizeof(float));
+  World world();
 
   shader.use();
   glm::mat4 p = camera.get_perspective_matrix();
@@ -43,20 +40,6 @@ int main(int argc, char** argv) {
     shader.uniform_texture2D("tex", tex, 0);
     glm::mat4 v = camera.get_view_matrix();
     shader.uniform_mat4("v", v);
-
-    cubeVAO.bind();
-    for (int i = 0; i < 16; i++) {
-      for (int j = 0; j < 16; j++) {
-        for (int k = 0; k < 16; k++) {
-          glm::mat4 m = glm::translate(glm::mat4(1.0f),
-                                       glm::vec3((float)i, (float)j, (float)k));
-          shader.uniform_mat4("m", m);
-          glDrawArrays(GL_TRIANGLES, 0, sizeof(vertices) / sizeof(float));
-        }
-      }
-    }
-
-    // ui.render();
 
     window.end_frame();
   }

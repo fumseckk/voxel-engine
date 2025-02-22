@@ -34,6 +34,7 @@ class Window {
   GLFWwindow* window = NULL;
   float width;
   float height;
+  bool wireframe = false;
   float frame_delta = 0;
   float frame_last = 0;
   long long frames = 0;
@@ -121,7 +122,6 @@ class Window {
     this->height = height;
   }
 
-
   void cursor_callback(int xpos, int ypos) {
     glm::vec2 pos(xpos, ypos);
     mouse.delta_position = glm::clamp(mouse.position - pos, -100.0f, 100.0f);
@@ -167,22 +167,17 @@ class Window {
           keyboard.keys[i].down && !keyboard.keys[i].down_before;
       keyboard.keys[i].down_before = keyboard.keys[i].down;
     }
-
-    // Exit if needed
-    if (keyboard.keys[GLFW_KEY_Q].pressed) {
+    // Exit if needed, move this ?
+    if (keyboard.keys[GLFW_KEY_Q].pressed)
       glfwSetWindowShouldClose(window, true);
+    if (keyboard.keys[GLFW_KEY_LEFT_ALT].pressed) {
+      wireframe = !wireframe;
+      if (wireframe) {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+      } else {
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      }
     }
-    // if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-    //     cameraPos += cameraSpeed * cameraFront;
-    // if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    //     cameraPos -= cameraSpeed * cameraFront;
-    // if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-    //     cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) *
-    //     cameraSpeed;
-    // if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-    //     cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) *
-    //     cameraSpeed;
-    // }
   }
 };
 

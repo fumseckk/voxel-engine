@@ -5,9 +5,9 @@ layout (location = 1) in vec2 aTex;
 out vec2 vTex;
 
 // uniform mat4 model;
-uniform mat4 m, v, p;
+uniform mat4 v, p;
 
 void main() {
-  gl_Position = p * v * m * vec4(aPos, 1.0);
+  gl_Position = p * v * vec4(aPos, 1.0);
   vTex = aTex;
 }

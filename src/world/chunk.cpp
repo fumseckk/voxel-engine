@@ -190,6 +190,7 @@ class World {
   }
   void render() {
     for (auto chunk: active_chunks) {
+      // TODO let matrix "m" stay there so that we offset each chunk by its origin?
       chunk.render();
     }
   }

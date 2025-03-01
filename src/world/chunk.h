@@ -2,6 +2,9 @@
 #define CHUNK_H
 
 #include "../gfx/gfx.h"
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtx/hash.hpp"
+
 #include <vector>
 #include <optional>
 #include <map>
@@ -9,50 +12,53 @@
 
 #include "../cube.h"
 
+#define CHUNKS_SIZE 8
+#define VERTICAL_CHUNKS 5
+#define RENDER_DISTANCE 2
 
-#define CHUNKS_SIZE 4
-
-#define NB_CHUNKS_X 5
-#define NB_CHUNKS_Y 2
-#define NB_CHUNKS_Z 5
-
-#define IN_RANGE(_p, _size_x, _size_y, _size_z)                               \
-  (_p.z >= 0 && _p.y >= 0 && _p.z >= 0 && _p.x < _size_x && _p.y < _size_y && \
-   _p.z < _size_z)
-
-#define IN_RANGE_EQUI(p, size) IN_RANGE(p, size, size, size)
-
-#define UVEC3_TO_COORDS(p, _size_x, _size_y)           \
-  ({                                                   \
-    assert(IN_RANGE(p, _size_x, _size_y, UINT_MAX));   \
-    (p.z * _size_x * _size_y) + (p.y * _size_x) + p.x; \
-  })
-
-#define COORDS_TO_UVEC3(_coords, _size_x, _size_y) \
-  ({                                               \
-    uint _x = _coords % _size_x;                   \
-    uint _a = (_coords - _x) / _size_x;            \
-    uint _y = _a % _size_y;                        \
-    uint _z = (_a - _y) / _size_y;                 \
-    glm::uvec3(_x, _y, _z);                        \
-  })
+GLenum glCheckError_(const char* file, int line) {
+  GLenum errorCode;
+  while ((errorCode = glGetError()) != GL_NO_ERROR) {
+    std::string error;
+    switch (errorCode) {
+      case GL_INVALID_ENUM:
+        error = "INVALID_ENUM";
+        break;
+      case GL_INVALID_VALUE:
+        error = "INVALID_VALUE";
+        break;
+      case GL_INVALID_OPERATION:
+        error = "INVALID_OPERATION";
+        break;
+      case GL_OUT_OF_MEMORY:
+        error = "OUT_OF_MEMORY";
+        break;
+      case GL_INVALID_FRAMEBUFFER_OPERATION:
+        error = "INVALID_FRAMEBUFFER_OPERATION";
+        break;
+    }
+    std::cout << error << " | " << file << " (" << line << ")" << std::endl;
+  }
+  return errorCode;
+}
+#define glCheckError() glCheckError_(__FILE__, __LINE__)
 
 enum BlockType { EMPTY, GRASS, DIRT };
 
 enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP };
 #define FIRST_DIRECTION BACKWARD
 #define LAST_DIRECTION UP
-glm::uvec3 dir[]{
-    glm::uvec3(0, 0, -1), glm::uvec3(0, 0, 1),  glm::uvec3(-1, 0, 0),
-    glm::uvec3(1, 0, 0),  glm::uvec3(0, -1, 0), glm::uvec3(0, 1, 0),
+glm::ivec3 dir[]{
+    glm::ivec3(0, 0, -1), glm::ivec3(0, 0, 1),  glm::ivec3(-1, 0, 0),
+    glm::ivec3(1, 0, 0),  glm::ivec3(0, -1, 0), glm::ivec3(0, 1, 0),
 };
 
 struct Face {
  public:
   BlockType type;
   Direction dir;
-  glm::uvec3 coords;
-  Face(BlockType type, Direction dir, glm::uvec3 coords)
+  glm::ivec3 coords;
+  Face(BlockType type, Direction dir, glm::ivec3 coords)
       : type(type), dir(dir), coords(coords) {}
 };
 
@@ -72,60 +78,90 @@ class Block {
 
 struct ChunkMesh {
   VAO vao;
-  VBO vbo, ebo;
+  VBO vbo;
   vector<float> buffer;
   vector<Face> faces;
-  ChunkMesh()
-      : vao(VAO()),
-        vbo(VBO(GL_ARRAY_BUFFER, false)),
-        ebo(VBO(GL_ELEMENT_ARRAY_BUFFER, false)) {}
+  ChunkMesh() : vao(VAO()), vbo(VBO(GL_ARRAY_BUFFER, false)) {}
   ~ChunkMesh() {}
 };
 
 class Chunk {
  public:
   bool dirty = true;  // TODO make use of this
-  glm::uvec3 origin;
-  uint active_count = 0;
+  glm::ivec3 origin;
+  int active_count = 0;
   ChunkMesh mesh;
-  vector<Block> blocks;
+  int nb_blocks = CHUNKS_SIZE * CHUNKS_SIZE * CHUNKS_SIZE;
+  Block blocks[CHUNKS_SIZE * CHUNKS_SIZE * CHUNKS_SIZE];
+
   Chunk() { assert(false); }
-  Chunk(glm::uvec3 origin) {
-    this->origin = origin * glm::uvec3(CHUNKS_SIZE);
-    blocks.resize(CHUNKS_SIZE * CHUNKS_SIZE * CHUNKS_SIZE);
-    set_random();
+  Chunk(glm::ivec3 origin) {
+    this->origin = origin * glm::ivec3(CHUNKS_SIZE);
+    set_floor();
+    dirty = true;
   }
+
+  ~Chunk() {};
+
   void set_random() {
     active_count = 0;
-    for (auto it = blocks.begin(); it != blocks.end(); it++) {
+    for (int i = 0; i < nb_blocks; i++) {
       if (std::rand() % 2) {
-        it->set_active(true);
+        blocks[i].set_active(true);
         active_count++;
       } else {
-        it->set_active(false);
+        blocks[i].set_active(false);
       }
     }
   }
-  ~Chunk() {};
 
-  bool in_range(glm::uvec3& p) { return IN_RANGE_EQUI(p, CHUNKS_SIZE); }
+  glm::ivec3 index_to_ivec3(int index) {
+    int x = index % CHUNKS_SIZE;
+    int a = (index - x) / CHUNKS_SIZE;
+    int y = a % CHUNKS_SIZE;
+    int z = (a - y) / CHUNKS_SIZE;
+    return glm::ivec3(x, y, z);
+  }
 
-  Block operator[](glm::uvec3 p) {
+  int ivec3_to_index(glm::ivec3 p) {
+    return p.z * CHUNKS_SIZE * CHUNKS_SIZE + p.y * CHUNKS_SIZE + p.x;
+  }
+
+  void set_floor() {
+    active_count = 0;
+    for (int x = 0; x < CHUNKS_SIZE; x++) {
+      for (int z = 0; z < CHUNKS_SIZE; z++) {
+        blocks[ivec3_to_index(glm::ivec3(x, 0, z))].set_active(true);
+        active_count++;
+      }
+    }
+    // for (int i = 0; i < 4 * CHUNKS_SIZE; i++) {
+    //   blocks[i].set_active(true);
+    //   active_count++;
+    // }
+  }
+
+  bool in_range(glm::ivec3 p) {
+    return p.x >= 0 && p.y >= 0 && p.z >= 0 && p.x < CHUNKS_SIZE &&
+           p.y < CHUNKS_SIZE && p.z < CHUNKS_SIZE;
+  }
+
+  Block operator[](glm::ivec3 p) {
     assert(in_range(p));
-    return blocks[UVEC3_TO_COORDS(p, CHUNKS_SIZE, CHUNKS_SIZE)];
+    return blocks[ivec3_to_index(p)];
   }
 
   void create_faces() {
     mesh.faces.clear();
     if (active_count == 0) return;
-    for (uint x = 0; x < CHUNKS_SIZE; x++) {
-      for (uint y = 0; y < CHUNKS_SIZE; y++) {
-        for (uint z = 0; z < CHUNKS_SIZE; z++) {
-          glm::uvec3 p(x, y, z);
+    for (int x = 0; x < CHUNKS_SIZE; x++) {
+      for (int y = 0; y < CHUNKS_SIZE; y++) {
+        for (int z = 0; z < CHUNKS_SIZE; z++) {
+          glm::ivec3 p(x, y, z);
           Block block = (*this)[p];
           if ((*this)[p].is_active()) {
-            for (uint d = FIRST_DIRECTION; d < LAST_DIRECTION + 1; d++) {
-              glm::uvec3 neigh = p + dir[d];
+            for (int d = FIRST_DIRECTION; d < LAST_DIRECTION + 1; d++) {
+              glm::ivec3 neigh = p + dir[d];
               // TODO do not draw if neighbour chunk has active block
               if (in_range(neigh) && (*this)[neigh].is_active()) continue;
               mesh.faces.push_back(Face(block.type, (Direction)d, p));
@@ -134,12 +170,11 @@ class Chunk {
         }
       }
     }
+    assert(mesh.faces.size());
   }
 
   void set_face_at_coords(float* dest, Face& face) {
-    uint off = face.dir * FACE_SIZE;
-    printf("FACE: %d | %d %d %d\n", face.dir, face.coords.x, face.coords.y,
-           face.coords.z);
+    int off = face.dir * FACE_SIZE;
     for (int i = 0; i < FACE_SIZE; i += 5) {
       dest[i + 0] = vertices[off + i + 0] + (float)(face.coords.x + origin.x);
       dest[i + 1] = vertices[off + i + 1] + (float)(face.coords.y + origin.y);
@@ -150,6 +185,7 @@ class Chunk {
   }
 
   void remesh() {
+    printf("remeshing %d %d %d\n", origin.x, origin.y, origin.z);
     create_faces();
     if (mesh.faces.size() == 0) return;
     mesh.buffer.resize(mesh.faces.size() * FACE_SIZE);
@@ -157,81 +193,97 @@ class Chunk {
     for (Face& face : mesh.faces) {
       set_face_at_coords(ptr, face);
       ptr += FACE_SIZE;
-      // assert(abs(ptr - mesh.buffer.data()) < mesh.buffer.size());
     }
   }
 
   void render(Camera& camera) {
     if (mesh.faces.size() == 0) return;
+    mesh.vao.bind();
+    // glCheckError();
     mesh.vbo.buffer(mesh.buffer.data(), mesh.buffer.size() * sizeof(float));
     mesh.vao.attr(mesh.vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
     mesh.vao.attr(mesh.vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
                   3 * sizeof(float));
-    glDrawArrays(GL_TRIANGLES, 0, mesh.buffer.size());
+    glDrawArrays(GL_TRIANGLES, 0, mesh.buffer.size() / VERTEX_SIZE);
   }
 };
 
-// TODO: abstract chunk constrol in World class. Then call good functions in
-// main.cpp !
-// TODO do not create all chunks, rather make a cache ! do later.
-
 class World {
  public:
-  const uint chunks_size = CHUNKS_SIZE;
-  const uint nb_chunks_x = NB_CHUNKS_X;
-  const uint nb_chunks_y = NB_CHUNKS_Y;
-  const uint nb_chunks_z = NB_CHUNKS_Z;
-  map<uint, Chunk> chunks;
+  const int render_distance = RENDER_DISTANCE;
+  const int chunks_size = CHUNKS_SIZE;
+  unordered_map<glm::ivec3, Chunk> chunks;
+  unordered_map<glm::ivec3, Chunk*> loaded_chunks;
   Shader shader = Shader("resources/shaders/default.vert",
                          "resources/shaders/default.frag");
   Texture texture = Texture("resources/textures/wooden_container.jpg");
-  // vector<Chunk&> active_chunks;
   World() {}
   ~World() {}
   // TODO this will be useless for generated world
 
-  bool in_range(glm::uvec3& p) {
-    return IN_RANGE(p, chunks_size * nb_chunks_x, chunks_size * nb_chunks_y,
-                    chunks_size * nb_chunks_z);
+  void prepare(Camera& camera) {
+    shader.use();
+    glm::mat4 p = camera.get_perspective_matrix();
+    shader.uniform_mat4("p", p);
   }
 
-  Chunk retrieve_chunk(glm::uvec3& p) {
-    glm::uvec3 pc = p / glm::uvec3(chunks_size);
-    assert(IN_RANGE(pc, nb_chunks_x, nb_chunks_y, nb_chunks_z));
-    return chunks[UVEC3_TO_COORDS(p, nb_chunks_x, nb_chunks_y)];
+  glm::ivec3 retrieve_chunk_coords(glm::ivec3 p) {
+    // division rounded down for consistency in the negatives
+    return glm::floor((glm::vec3)p / glm::vec3(chunks_size));
+  }
+  Chunk retrieve_chunk(glm::ivec3 p) {
+    return chunks[retrieve_chunk_coords(p)];
   }
 
-  Block operator[](glm::uvec3 p) {
-    assert(in_range(p));
+  Block operator[](glm::ivec3 p) {
     Chunk chunk = retrieve_chunk(p);
-    return chunk[p % glm::uvec3(chunks_size)];
+    return chunk[p & glm::ivec3(chunks_size - 1)];  // TODO tester ça ??
   }
 
   void render(Camera& camera) {
-    // TODO change this to have loaded, unloaded chunks.
-    for (uint x = 0; x < nb_chunks_x; x++) {
-      for (uint y = 0; y < nb_chunks_y; y++) {
-        for (uint z = 0; z < nb_chunks_z; z++) {
-          uint idx =
-              UVEC3_TO_COORDS(glm::uvec3(x, y, z), nb_chunks_x, nb_chunks_y);
-          if (chunks.find(idx) == chunks.end()) {
-            chunks.emplace(std::make_pair(idx, Chunk(glm::uvec3(x, y, z))));
+    glm::ivec3 player_coords = glm::ivec3(camera.position);
+    glm::ivec3 player_chunk_coords = retrieve_chunk_coords(player_coords);
+
+    // Unload chunks that are too far
+    for (auto it = loaded_chunks.cbegin(); it != loaded_chunks.cend();) {
+      Chunk* chunk = it->second;
+      glm::ivec3 orig = chunk->origin - player_chunk_coords;
+      if (orig.x * orig.x + orig.y * orig.y + orig.z * orig.z >
+          render_distance * render_distance)
+        loaded_chunks.erase(it++);
+      else
+        it++;
+    }
+
+    // Load chunks that became close, create them if needed
+    for (int x = -render_distance; x < render_distance; x++) {
+      for (int z = -render_distance; z < render_distance; z++) {
+        if (x * x + z * z > render_distance * render_distance) continue;
+        for (int y = 0; y < VERTICAL_CHUNKS; y++) {
+          glm::ivec3 chunk_coords = player_chunk_coords + glm::ivec3(x, y, z);
+          if (chunks.find(chunk_coords) == chunks.end()) {
+            chunks.emplace(chunk_coords, Chunk(chunk_coords));
+            loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
+          } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
+            loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
           }
         }
       }
     }
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.2f, 0.3f, 0.7f, 1.0f);
-    glm::mat4 p = camera.get_perspective_matrix();
+    glClearColor(0.63f, 0.86f, 1.0f, 1.0f);
     glm::mat4 v = camera.get_view_matrix();
-    shader.uniform_mat4("p", p);
+    shader.use();
     shader.uniform_mat4("v", v);
-    for (auto& [_, chunk] : chunks) {
-      if (chunk.dirty) {
-        chunk.remesh();
-        chunk.dirty = false;
+
+    // TODO chunk render queue
+    for (auto [coords, chunk] : loaded_chunks) {
+      if (chunk->dirty) {
+        chunk->remesh();
+        chunk->dirty = false;
       }
-      chunk.render(camera);
+      chunk->render(camera);
     }
   }
 };

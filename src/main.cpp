@@ -14,14 +14,15 @@ extern Window window;
 int main(int argc, char** argv) {
   std::srand(std::time({}));
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_CULL_FACE);
 
-  Camera camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f)); // Position the camera to view the cube
-  
-  
-  // UI ui(window);
+  Camera camera = Camera(
+      glm::vec3(0.0f, 0.0f, 3.0f));  // Position the camera to view the cube
+
   World world;
-  
-  
+
+
+  // TODO WHYW is this necessary ??? DO NOT REMOVE
   VAO vao;
   VBO vbo(GL_ARRAY_BUFFER, false);
   vbo.buffer(vertices, sizeof(vertices));
@@ -29,23 +30,16 @@ int main(int argc, char** argv) {
   vao.attr(vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
                 3 * sizeof(float));
 
-
   world.shader.use();
-  
+  world.prepare(camera);
+
+
 
   while (!glfwWindowShouldClose(window)) {
     window.begin_frame();
     camera.move();
+    world.texture.bind();
     world.render(camera);
-    // world.shader.use();
-    // world.texture.bind();
-    // world.shader.uniform_texture2D("tex", world.texture, 0);
-
-    // glm::mat4 p = camera.get_perspective_matrix();
-    // world.shader.uniform_mat4("p", p);
-    // glm::mat4 v = camera.get_view_matrix();
-    // world.shader.uniform_mat4("v", v);
-
     window.end_frame();
   }
 

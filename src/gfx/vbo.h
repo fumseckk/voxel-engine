@@ -1,5 +1,5 @@
-#ifndef INPUT_H
-#define INPUT_H
+#ifndef VBO_H
+#define VBO_H
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -19,11 +19,11 @@ public:
     glDeleteBuffers(1, &id);
   }
 
-  void bind() {
+  void bind() const {
     glBindBuffer(type, id);
   }
 
-  void buffer(void* data, size_t count) {
+  void buffer(void* data, size_t count) const {
     this->bind();
     glBufferData(type, count, data, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
   }

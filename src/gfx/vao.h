@@ -16,12 +16,12 @@ public:
     glDeleteVertexArrays(1, &id);
   }
 
-  void bind() {
+  void bind() const {
     glBindVertexArray(id);
   }
 
-  void attr(VBO& vbo, GLuint index, GLint size, GLenum type, GLsizei stride, size_t offset) {
-    bind();
+  void attr(const VBO& vbo, GLuint index, GLint size, GLenum type, GLsizei stride, size_t offset) const {
+    this->bind();
     vbo.bind();
     glVertexAttribPointer(index, size, type, GL_FALSE, stride, (void*)offset);
     glEnableVertexAttribArray(index);

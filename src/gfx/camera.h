@@ -31,7 +31,7 @@ class Camera {
     this->znear = 0.01f;
     this->zfar = 100.0f;
     this->aspect_ratio = window.width / window.height;
-    this->mvt_speed = 3.0f;
+    this->mvt_speed = 10.0f;
     this->mouse_sensitivity = 0.1f;
     update_camera_vectors();
   }

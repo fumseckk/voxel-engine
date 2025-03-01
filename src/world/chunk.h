@@ -12,9 +12,9 @@
 
 #include "../cube.h"
 
-#define CHUNKS_SIZE 8
+#define CHUNKS_SIZE 16
 #define VERTICAL_CHUNKS 5
-#define RENDER_DISTANCE 2
+#define RENDER_DISTANCE 10
 
 GLenum glCheckError_(const char* file, int line) {
   GLenum errorCode;
@@ -81,8 +81,12 @@ struct ChunkMesh {
   VBO vbo;
   vector<float> buffer;
   vector<Face> faces;
-  ChunkMesh() : vao(VAO()), vbo(VBO(GL_ARRAY_BUFFER, false)) {}
-  ~ChunkMesh() {}
+  ChunkMesh() : vao(VAO()), vbo(VBO(GL_ARRAY_BUFFER, false)) {
+    // vao.bind();
+    // vbo.bind();
+  }
+  ~ChunkMesh() {
+  }
 };
 
 class Chunk {
@@ -98,6 +102,9 @@ class Chunk {
   Chunk(glm::ivec3 origin) {
     this->origin = origin * glm::ivec3(CHUNKS_SIZE);
     set_floor();
+    mesh.vao.attr(mesh.vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
+    mesh.vao.attr(mesh.vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
+                  3 * sizeof(float));
     dirty = true;
   }
 
@@ -135,10 +142,6 @@ class Chunk {
         active_count++;
       }
     }
-    // for (int i = 0; i < 4 * CHUNKS_SIZE; i++) {
-    //   blocks[i].set_active(true);
-    //   active_count++;
-    // }
   }
 
   bool in_range(glm::ivec3 p) {
@@ -185,7 +188,6 @@ class Chunk {
   }
 
   void remesh() {
-    printf("remeshing %d %d %d\n", origin.x, origin.y, origin.z);
     create_faces();
     if (mesh.faces.size() == 0) return;
     mesh.buffer.resize(mesh.faces.size() * FACE_SIZE);
@@ -194,16 +196,15 @@ class Chunk {
       set_face_at_coords(ptr, face);
       ptr += FACE_SIZE;
     }
+    mesh.vbo.buffer(mesh.buffer.data(), mesh.buffer.size() * sizeof(float));
+    
   }
 
   void render(Camera& camera) {
     if (mesh.faces.size() == 0) return;
     mesh.vao.bind();
-    // glCheckError();
-    mesh.vbo.buffer(mesh.buffer.data(), mesh.buffer.size() * sizeof(float));
-    mesh.vao.attr(mesh.vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
-    mesh.vao.attr(mesh.vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
-                  3 * sizeof(float));
+    glCheckError();
+
     glDrawArrays(GL_TRIANGLES, 0, mesh.buffer.size() / VERTEX_SIZE);
   }
 };
@@ -262,7 +263,9 @@ class World {
         for (int y = 0; y < VERTICAL_CHUNKS; y++) {
           glm::ivec3 chunk_coords = player_chunk_coords + glm::ivec3(x, y, z);
           if (chunks.find(chunk_coords) == chunks.end()) {
-            chunks.emplace(chunk_coords, Chunk(chunk_coords));
+            chunks.emplace(std::piecewise_construct,
+              std::forward_as_tuple(chunk_coords),
+              std::forward_as_tuple(chunk_coords));
             loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
           } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
             loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);

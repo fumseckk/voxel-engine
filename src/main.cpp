@@ -9,8 +9,6 @@
 // chunk class
 // render cubes have fun
 
-extern Window window;
-
 int main(int argc, char** argv) {
   std::srand(std::time({}));
   glEnable(GL_DEPTH_TEST);
@@ -20,15 +18,6 @@ int main(int argc, char** argv) {
       glm::vec3(0.0f, 0.0f, 3.0f));  // Position the camera to view the cube
 
   World world;
-
-
-  // TODO WHYW is this necessary ??? DO NOT REMOVE
-  VAO vao;
-  VBO vbo(GL_ARRAY_BUFFER, false);
-  vbo.buffer(vertices, sizeof(vertices));
-  vao.attr(vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
-  vao.attr(vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
-                3 * sizeof(float));
 
   world.shader.use();
   world.prepare(camera);

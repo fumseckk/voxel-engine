@@ -14,7 +14,7 @@
 #include "../cube.h"
 
 #define CHUNKS_SIZE 16
-#define VERTICAL_CHUNKS 4
+#define WORLD_HEIGHT 50
 #define RENDER_DISTANCE 10
 
 GLenum glCheckError_(const char* file, int line) {
@@ -92,12 +92,12 @@ class Chunk {
   glm::ivec3 origin;
   int active_count = 0;
   ChunkMesh mesh;
-  int nb_blocks = CHUNKS_SIZE * CHUNKS_SIZE * CHUNKS_SIZE;
-  Block blocks[CHUNKS_SIZE * CHUNKS_SIZE * CHUNKS_SIZE];
+  int nb_blocks = CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE;
+  Block blocks[CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE];
 
   Chunk() { assert(false); }
   Chunk(glm::ivec3 origin) {
-    this->origin = origin * glm::ivec3(CHUNKS_SIZE);
+    this->origin = origin * glm::ivec3(CHUNKS_SIZE, 0, CHUNKS_SIZE);
     // set_random();
     set_blocks();
     mesh.vao.attr(mesh.vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
@@ -119,8 +119,8 @@ class Chunk {
         mx = max(height, mx);
         mn = min(height, mn);
         int scaled_height =
-            (int)((float)(VERTICAL_CHUNKS * CHUNKS_SIZE) * height);
-        for (int y = 0; y < CHUNKS_SIZE && y + origin.y < scaled_height; y++) {
+            (int)((float)(WORLD_HEIGHT) * height);
+        for (int y = 0; y + origin.y < scaled_height && y < WORLD_HEIGHT; y++) {
           blocks[ivec3_to_index(glm::ivec3(x, y, z))].set_active(true);
           active_count++;
         }
@@ -152,20 +152,21 @@ class Chunk {
   }
 
   glm::ivec3 index_to_ivec3(int index) {
+
     int x = index % CHUNKS_SIZE;
     int a = (index - x) / CHUNKS_SIZE;
-    int y = a % CHUNKS_SIZE;
-    int z = (a - y) / CHUNKS_SIZE;
+    int y = a % WORLD_HEIGHT;
+    int z = (a - y) / WORLD_HEIGHT;
     return glm::ivec3(x, y, z);
   }
 
   int ivec3_to_index(glm::ivec3 p) {
-    return p.z * CHUNKS_SIZE * CHUNKS_SIZE + p.y * CHUNKS_SIZE + p.x;
+    return p.z * CHUNKS_SIZE * WORLD_HEIGHT + p.y * CHUNKS_SIZE + p.x;
   }
 
   bool in_range(glm::ivec3 p) {
     return p.x >= 0 && p.y >= 0 && p.z >= 0 && p.x < CHUNKS_SIZE &&
-           p.y < CHUNKS_SIZE && p.z < CHUNKS_SIZE;
+           p.y < WORLD_HEIGHT && p.z < CHUNKS_SIZE;
   }
 
   Block operator[](glm::ivec3 p) {
@@ -177,7 +178,7 @@ class Chunk {
     mesh.faces.clear();
     if (active_count == 0) return;
     for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int y = 0; y < CHUNKS_SIZE; y++) {
+      for (int y = 0; y < WORLD_HEIGHT; y++) {
         for (int z = 0; z < CHUNKS_SIZE; z++) {
           glm::ivec3 p(x, y, z);
           Block block = (*this)[p];
@@ -278,17 +279,15 @@ class World {
     for (int x = -render_distance; x < render_distance; x++) {
       for (int z = -render_distance; z < render_distance; z++) {
         if (x * x + z * z > render_distance * render_distance) continue;
-        for (int y = 0; y < VERTICAL_CHUNKS; y++) {
-          glm::ivec3 chunk_coords = glm::vec3(player_chunk_coords.x + x, y,
-                                              player_chunk_coords.z + z);
-          if (chunks.find(chunk_coords) == chunks.end()) {
-            chunks.emplace(std::piecewise_construct,
-                           std::forward_as_tuple(chunk_coords),
-                           std::forward_as_tuple(chunk_coords));
-            loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
-          } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
-            loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
-          }
+        glm::ivec3 chunk_coords = glm::vec3(player_chunk_coords.x + x, 0,
+                                            player_chunk_coords.z + z);
+        if (chunks.find(chunk_coords) == chunks.end()) {
+          chunks.emplace(std::piecewise_construct,
+                          std::forward_as_tuple(chunk_coords),
+                          std::forward_as_tuple(chunk_coords));
+          loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
+        } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
+          loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
         }
       }
     }

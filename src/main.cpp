@@ -15,15 +15,12 @@ int main(int argc, char** argv) {
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_CULL_FACE);
 
-  Camera camera = Camera(
-      glm::vec3(0.0f, (float)(CHUNKS_SIZE * VERTICAL_CHUNKS), 3.0f));  // Position the camera to view the cube
+  Camera camera = Camera(glm::vec3(0.0f, (float)(WORLD_HEIGHT), 3.0f));
 
   World world;
 
   world.shader.use();
   world.prepare(camera);
-
-
 
   while (!glfwWindowShouldClose(window)) {
     window.begin_frame();

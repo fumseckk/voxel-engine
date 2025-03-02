@@ -136,6 +136,7 @@ class Chunk {
 
   void set_floor() {
     active_count = 0;
+    if (origin.y != 0) return;
     for (int x = 0; x < CHUNKS_SIZE; x++) {
       for (int z = 0; z < CHUNKS_SIZE; z++) {
         blocks[ivec3_to_index(glm::ivec3(x, 0, z))].set_active(true);
@@ -261,7 +262,7 @@ class World {
       for (int z = -render_distance; z < render_distance; z++) {
         if (x * x + z * z > render_distance * render_distance) continue;
         for (int y = 0; y < VERTICAL_CHUNKS; y++) {
-          glm::ivec3 chunk_coords = player_chunk_coords + glm::ivec3(x, y, z);
+          glm::ivec3 chunk_coords = glm::vec3(player_chunk_coords.x + x, y, player_chunk_coords.z + z);
           if (chunks.find(chunk_coords) == chunks.end()) {
             chunks.emplace(std::piecewise_construct,
               std::forward_as_tuple(chunk_coords),

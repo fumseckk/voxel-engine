@@ -5,6 +5,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/hash.hpp"
 
+#include "fastnoiselite.h"
 #include <vector>
 #include <optional>
 #include <map>
@@ -13,7 +14,7 @@
 #include "../cube.h"
 
 #define CHUNKS_SIZE 16
-#define VERTICAL_CHUNKS 5
+#define VERTICAL_CHUNKS 4
 #define RENDER_DISTANCE 10
 
 GLenum glCheckError_(const char* file, int line) {
@@ -81,12 +82,8 @@ struct ChunkMesh {
   VBO vbo;
   vector<float> buffer;
   vector<Face> faces;
-  ChunkMesh() : vao(VAO()), vbo(VBO(GL_ARRAY_BUFFER, false)) {
-    // vao.bind();
-    // vbo.bind();
-  }
-  ~ChunkMesh() {
-  }
+  ChunkMesh() : vao(VAO()), vbo(VBO(GL_ARRAY_BUFFER, false)) {}
+  ~ChunkMesh() {}
 };
 
 class Chunk {
@@ -101,7 +98,8 @@ class Chunk {
   Chunk() { assert(false); }
   Chunk(glm::ivec3 origin) {
     this->origin = origin * glm::ivec3(CHUNKS_SIZE);
-    set_floor();
+    // set_random();
+    set_blocks();
     mesh.vao.attr(mesh.vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
     mesh.vao.attr(mesh.vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
                   3 * sizeof(float));
@@ -109,6 +107,27 @@ class Chunk {
   }
 
   ~Chunk() {};
+
+  void set_blocks() {
+    FastNoiseLite noise;
+    float mx = 0.0f, mn = 10.0F;
+    for (int x = 0; x < CHUNKS_SIZE; x++) {
+      for (int z = 0; z < CHUNKS_SIZE; z++) {
+        float height =
+            noise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
+            0.5f;
+        mx = max(height, mx);
+        mn = min(height, mn);
+        int scaled_height =
+            (int)((float)(VERTICAL_CHUNKS * CHUNKS_SIZE) * height);
+        for (int y = 0; y < CHUNKS_SIZE && y + origin.y < scaled_height; y++) {
+          blocks[ivec3_to_index(glm::ivec3(x, y, z))].set_active(true);
+          active_count++;
+        }
+      }
+    }
+    printf("mxheight: %.1f, mnheight: %.1f\n", mx, mn);
+  }
 
   void set_random() {
     active_count = 0;
@@ -118,6 +137,17 @@ class Chunk {
         active_count++;
       } else {
         blocks[i].set_active(false);
+      }
+    }
+  }
+
+  void set_floor() {
+    active_count = 0;
+    if (origin.y != 0) return;
+    for (int x = 0; x < CHUNKS_SIZE; x++) {
+      for (int z = 0; z < CHUNKS_SIZE; z++) {
+        blocks[ivec3_to_index(glm::ivec3(x, 0, z))].set_active(true);
+        active_count++;
       }
     }
   }
@@ -132,17 +162,6 @@ class Chunk {
 
   int ivec3_to_index(glm::ivec3 p) {
     return p.z * CHUNKS_SIZE * CHUNKS_SIZE + p.y * CHUNKS_SIZE + p.x;
-  }
-
-  void set_floor() {
-    active_count = 0;
-    if (origin.y != 0) return;
-    for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int z = 0; z < CHUNKS_SIZE; z++) {
-        blocks[ivec3_to_index(glm::ivec3(x, 0, z))].set_active(true);
-        active_count++;
-      }
-    }
   }
 
   bool in_range(glm::ivec3 p) {
@@ -174,6 +193,7 @@ class Chunk {
         }
       }
     }
+    printf("origin: %d %d %d, faces: %d\n", origin.x/CHUNKS_SIZE, origin.y/CHUNKS_SIZE, origin.z/CHUNKS_SIZE, mesh.faces.size());
     assert(mesh.faces.size());
   }
 
@@ -198,14 +218,12 @@ class Chunk {
       ptr += FACE_SIZE;
     }
     mesh.vbo.buffer(mesh.buffer.data(), mesh.buffer.size() * sizeof(float));
-    
   }
 
   void render(Camera& camera) {
     if (mesh.faces.size() == 0) return;
+    // glCheckError();
     mesh.vao.bind();
-    glCheckError();
-
     glDrawArrays(GL_TRIANGLES, 0, mesh.buffer.size() / VERTEX_SIZE);
   }
 };
@@ -262,11 +280,12 @@ class World {
       for (int z = -render_distance; z < render_distance; z++) {
         if (x * x + z * z > render_distance * render_distance) continue;
         for (int y = 0; y < VERTICAL_CHUNKS; y++) {
-          glm::ivec3 chunk_coords = glm::vec3(player_chunk_coords.x + x, y, player_chunk_coords.z + z);
+          glm::ivec3 chunk_coords = glm::vec3(player_chunk_coords.x + x, y,
+                                              player_chunk_coords.z + z);
           if (chunks.find(chunk_coords) == chunks.end()) {
             chunks.emplace(std::piecewise_construct,
-              std::forward_as_tuple(chunk_coords),
-              std::forward_as_tuple(chunk_coords));
+                           std::forward_as_tuple(chunk_coords),
+                           std::forward_as_tuple(chunk_coords));
             loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
           } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
             loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);

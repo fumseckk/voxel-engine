@@ -6,16 +6,16 @@
 #include "world/chunk.h"
 
 // TODO
-// chunk class
-// render cubes have fun
+// Cube types ? Block atlas or not ?
+// Noise cool world.
 
 int main(int argc, char** argv) {
   std::srand(std::time({}));
   glEnable(GL_DEPTH_TEST);
-  glEnable(GL_CULL_FACE);
+  // glEnable(GL_CULL_FACE);
 
   Camera camera = Camera(
-      glm::vec3(0.0f, 0.0f, 3.0f));  // Position the camera to view the cube
+      glm::vec3(0.0f, (float)(CHUNKS_SIZE * VERTICAL_CHUNKS), 3.0f));  // Position the camera to view the cube
 
   World world;
 

@@ -15,6 +15,7 @@
 #include "vao.h"
 #include "texture.h"
 #include "camera.h"
+#include "blockatlas.h"
 
 
 

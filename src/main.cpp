@@ -5,10 +5,8 @@
 #include "cube.h"
 #include "world/chunk.h"
 
-// TODO
-// edit noise to add water etc
-// face shadow
-// Cube types ? Block atlas or not ?
+// TODO Cube types with block atlas
+// TODO edit noise to add water etc
 
 int main(int argc, char** argv) {
   std::srand(std::time({}));

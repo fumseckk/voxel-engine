@@ -15,7 +15,7 @@
 
 #define CHUNKS_SIZE 16
 #define WORLD_HEIGHT 50
-#define RENDER_DISTANCE 10
+#define RENDER_DISTANCE 15
 
 GLenum glCheckError_(const char* file, int line) {
   GLenum errorCode;
@@ -61,6 +61,33 @@ struct Face {
   glm::ivec3 coords;
   Face(BlockType type, Direction dir, glm::ivec3 coords)
       : type(type), dir(dir), coords(coords) {}
+  int get_blockatlas_index() {
+    switch (type) {
+      case EMPTY:
+        assert(false);
+        break;
+      case DIRT:
+        return 2;
+      case GRASS:
+        switch (dir) {
+          case UP:
+            return 0;
+          case DOWN:
+            return 1;
+          default:
+            return 2;
+        }
+      default:
+        assert(false);
+    }
+  }
+  // array<float, 12> get_uv() {
+  //   auto [topleft, botright] =
+  //   BlockAtlas::index_to_uv(get_blockatlas_index()); return array<float,
+  //   12>({
+  //     topleft.x,
+  //   });
+  // }
 };
 
 class Block {
@@ -88,9 +115,11 @@ struct ChunkMesh {
 
 class Chunk {
  public:
-  bool dirty = true;  // TODO make use of this
+  FastNoiseLite noise;
+  bool dirty = true;
   glm::ivec3 origin;
   int active_count = 0;
+  int highest_block = 0;
   ChunkMesh mesh;
   int nb_blocks = CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE;
   Block blocks[CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE];
@@ -108,22 +137,22 @@ class Chunk {
 
   ~Chunk() {};
 
+  int get_height(int x, int z) {
+    float height =
+      noise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
+      0.5f;
+    return (int)((float)WORLD_HEIGHT * height);
+  } 
   void set_blocks() {
-    FastNoiseLite noise;
     float mx = 0.0f, mn = 10.0F;
     for (int x = 0; x < CHUNKS_SIZE; x++) {
       for (int z = 0; z < CHUNKS_SIZE; z++) {
-        float height =
-            noise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
-            0.5f;
-        mx = max(height, mx);
-        mn = min(height, mn);
-        int scaled_height =
-            (int)((float)(WORLD_HEIGHT) * height);
+        int scaled_height = get_height(x, z);
         for (int y = 0; y + origin.y < scaled_height && y < WORLD_HEIGHT; y++) {
           blocks[ivec3_to_index(glm::ivec3(x, y, z))].set_active(true);
           active_count++;
         }
+        highest_block = max(highest_block, scaled_height);
       }
     }
   }
@@ -152,7 +181,6 @@ class Chunk {
   }
 
   glm::ivec3 index_to_ivec3(int index) {
-
     int x = index % CHUNKS_SIZE;
     int a = (index - x) / CHUNKS_SIZE;
     int y = a % WORLD_HEIGHT;
@@ -174,19 +202,20 @@ class Chunk {
     return blocks[ivec3_to_index(p)];
   }
 
-  void create_faces() {
+  void create_faces(unordered_map<glm::ivec3, Chunk>& chunks) {
     mesh.faces.clear();
     if (active_count == 0) return;
     for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int y = 0; y < WORLD_HEIGHT; y++) {
+      for (int y = 0; y < highest_block; y++) {
         for (int z = 0; z < CHUNKS_SIZE; z++) {
           glm::ivec3 p(x, y, z);
           Block block = (*this)[p];
           if ((*this)[p].is_active()) {
             for (int d = FIRST_DIRECTION; d < LAST_DIRECTION + 1; d++) {
               glm::ivec3 neigh = p + dir[d];
-              // TODO do not draw if neighbour chunk has active block
               if (in_range(neigh) && (*this)[neigh].is_active()) continue;
+              // FIXME this will break someday
+              if (!in_range(neigh) && get_height(neigh.x, neigh.z) > y) continue;
               mesh.faces.push_back(Face(block.type, (Direction)d, p));
             }
           }
@@ -207,8 +236,20 @@ class Chunk {
     }
   }
 
-  void remesh() {
-    create_faces();
+  glm::ivec3 retrieve_chunk_coords(glm::ivec3 p) {
+    // division rounded down for consistency in the negatives
+    return glm::floor((glm::vec3)p / glm::vec3(CHUNKS_SIZE));
+  }
+  Chunk retrieve_chunk(glm::ivec3 p, unordered_map<glm::ivec3, Chunk>& chunks) {
+    return chunks[retrieve_chunk_coords(p)];
+  }
+  Block get_world(glm::ivec3 p, unordered_map<glm::ivec3, Chunk>& chunks) {
+    Chunk chunk = retrieve_chunk(p, chunks);
+    return chunk[p & glm::ivec3(CHUNKS_SIZE - 1)];
+  }
+
+  void remesh(unordered_map<glm::ivec3, Chunk>& chunks) {
+    create_faces(chunks);
     if (mesh.faces.size() == 0) return;
     mesh.buffer.resize(mesh.faces.size() * FACE_SIZE);
     float* ptr = mesh.buffer.data();
@@ -233,13 +274,12 @@ class World {
   const int chunks_size = CHUNKS_SIZE;
   unordered_map<glm::ivec3, Chunk> chunks;
   unordered_map<glm::ivec3, Chunk*> loaded_chunks;
-  Shader shader = Shader("resources/shaders/default.vert",
-                         "resources/shaders/default.frag",
-                         "resources/shaders/default.geom");
-  Texture texture = Texture("resources/textures/wooden_container.jpg");
+  Shader shader =
+      Shader("resources/shaders/default.vert", "resources/shaders/default.frag",
+             "resources/shaders/default.geom");
+  Texture texture = Texture("resources/textures/atlas.png");
   World() {}
   ~World() {}
-  // TODO this will be useless for generated world
 
   void prepare(Camera& camera) {
     shader.use();
@@ -257,7 +297,7 @@ class World {
 
   Block operator[](glm::ivec3 p) {
     Chunk chunk = retrieve_chunk(p);
-    return chunk[p & glm::ivec3(chunks_size - 1)];  // TODO tester ça ??
+    return chunk[p & glm::ivec3(chunks_size - 1)];
   }
 
   void render(Camera& camera) {
@@ -279,12 +319,12 @@ class World {
     for (int x = -render_distance; x < render_distance; x++) {
       for (int z = -render_distance; z < render_distance; z++) {
         if (x * x + z * z > render_distance * render_distance) continue;
-        glm::ivec3 chunk_coords = glm::vec3(player_chunk_coords.x + x, 0,
-                                            player_chunk_coords.z + z);
+        glm::ivec3 chunk_coords =
+            glm::vec3(player_chunk_coords.x + x, 0, player_chunk_coords.z + z);
         if (chunks.find(chunk_coords) == chunks.end()) {
           chunks.emplace(std::piecewise_construct,
-                          std::forward_as_tuple(chunk_coords),
-                          std::forward_as_tuple(chunk_coords));
+                         std::forward_as_tuple(chunk_coords),
+                         std::forward_as_tuple(chunk_coords));
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
         } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
@@ -300,9 +340,9 @@ class World {
     shader.uniform_vec3("viewPos", camera.position);
 
     // TODO chunk render queue
-    for (auto [coords, chunk] : loaded_chunks) {
+    for (auto& [coords, chunk] : loaded_chunks) {
       if (chunk->dirty) {
-        chunk->remesh();
+        chunk->remesh(this->chunks);
         chunk->dirty = false;
       }
       chunk->render(camera);

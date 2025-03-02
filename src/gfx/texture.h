@@ -25,7 +25,9 @@ public:
 
     int width, height, nrChannels;
     stbi_set_flip_vertically_on_load(true);
-    unsigned char *data = stbi_load("resources/textures/wooden_container.jpg", &width, &height, &nrChannels, 0);
+    unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+    assert(width % 16 == 0);
+    assert(height % 16 == 0);
     if (!data) {
       std::cerr << "Failed to load texture" << std::endl;
     }

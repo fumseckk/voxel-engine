@@ -126,7 +126,6 @@ class Chunk {
         }
       }
     }
-    printf("mxheight: %.1f, mnheight: %.1f\n", mx, mn);
   }
 
   void set_random() {
@@ -193,7 +192,6 @@ class Chunk {
         }
       }
     }
-    printf("origin: %d %d %d, faces: %d\n", origin.x/CHUNKS_SIZE, origin.y/CHUNKS_SIZE, origin.z/CHUNKS_SIZE, mesh.faces.size());
     assert(mesh.faces.size());
   }
 
@@ -235,7 +233,8 @@ class World {
   unordered_map<glm::ivec3, Chunk> chunks;
   unordered_map<glm::ivec3, Chunk*> loaded_chunks;
   Shader shader = Shader("resources/shaders/default.vert",
-                         "resources/shaders/default.frag");
+                         "resources/shaders/default.frag",
+                         "resources/shaders/default.geom");
   Texture texture = Texture("resources/textures/wooden_container.jpg");
   World() {}
   ~World() {}
@@ -299,6 +298,7 @@ class World {
     glm::mat4 v = camera.get_view_matrix();
     shader.use();
     shader.uniform_mat4("v", v);
+    shader.uniform_vec3("viewPos", camera.position);
 
     // TODO chunk render queue
     for (auto [coords, chunk] : loaded_chunks) {

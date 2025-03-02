@@ -29,7 +29,7 @@ class Camera {
     this->pitch = pitch;
     this->fov = glm::radians(100.0f);
     this->znear = 0.01f;
-    this->zfar = 100.0f;
+    this->zfar = 200.0f;
     this->aspect_ratio = window.width / window.height;
     this->mvt_speed = 10.0f;
     this->mouse_sensitivity = 0.1f;

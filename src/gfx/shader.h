@@ -22,33 +22,37 @@ struct VertexAttr {
 
 class Shader {
  public:
-  unsigned int prog_id, vs_id, fs_id;
+  unsigned int prog_id, vs_id, fs_id, gs_id;
 
   // Constructor reads and builds the shader
-  Shader(const char* vertexPath, const char* fragmentPath) {
-    string vertexCode;
-    string fragmentCode;
-    ifstream vShaderFile;
-    ifstream fShaderFile;
+  Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath) {
+    string vertexCode, fragmentCode, geometryCode;
+    ifstream vShaderFile, fShaderFile, gShaderFile;
     vShaderFile.exceptions (ifstream::failbit | ifstream::badbit);
     fShaderFile.exceptions (ifstream::failbit | ifstream::badbit);
+    gShaderFile.exceptions (ifstream::failbit | ifstream::badbit);
     try 
     {
         vShaderFile.open(vertexPath);
         fShaderFile.open(fragmentPath);
-        stringstream vShaderStream, fShaderStream;
+        gShaderFile.open(geometryPath);
+        stringstream vShaderStream, fShaderStream, gShaderStream;
         vShaderStream << vShaderFile.rdbuf();
         fShaderStream << fShaderFile.rdbuf();		
+        gShaderStream << gShaderFile.rdbuf();		
         vShaderFile.close();
         fShaderFile.close();
+        gShaderFile.close();
         vertexCode   = vShaderStream.str();
         fragmentCode = fShaderStream.str();		
+        geometryCode = gShaderStream.str();
     } catch (const ifstream::failure& e) {
       std::cerr << "Failed to read shader file: " << e.what() << endl;
     }
 
     const char* cVertCode = vertexCode.c_str();
     const char* cFragCode = fragmentCode.c_str();
+    const char* cGeomCode = geometryCode.c_str();
 
     // Vertex shader
     int success;
@@ -64,9 +68,15 @@ class Shader {
     glCompileShader(fs_id);
     log_errors(fs_id, "FRAGMENT_SHADER");
 
+    gs_id = glCreateShader(GL_GEOMETRY_SHADER);
+    glShaderSource(gs_id, 1, &cGeomCode, NULL);
+    glCompileShader(gs_id);
+    log_errors(gs_id, "GEOMETRY_SHADER");
+
     prog_id = glCreateProgram();
     glAttachShader(prog_id, vs_id);
     glAttachShader(prog_id, fs_id);
+    glAttachShader(prog_id, gs_id);
     glLinkProgram(prog_id);
     log_errors(prog_id, "PROGRAM");
   }
@@ -74,6 +84,7 @@ class Shader {
   ~Shader() {
     glDeleteShader(vs_id);
     glDeleteShader(fs_id);
+    glDeleteShader(gs_id);
     glDeleteProgram(prog_id);
   }
 
@@ -133,8 +144,9 @@ private:
     if (type != "PROGRAM") {
       glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
       if (!success) {
+
         glGetShaderInfoLog(shader, SIZE, NULL, infolog);
-        std::cerr << "Failed to compile shader: " << infolog
+        std::cerr << "Failed to compile shader " << type << ": " << infolog
                   << std::endl;
       }
     }

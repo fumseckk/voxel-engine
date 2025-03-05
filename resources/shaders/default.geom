@@ -4,13 +4,15 @@ layout (triangle_strip, max_vertices = 3) out;
 
 in vec2 vsTex[];
 in vec3 vsFragPos[];
+in vec3 vsViewPos[];
 out vec2 fsTex;
 out vec3 fsNormal;
 out vec3 fsFragPos;
 
-vec3 get_normal() {
-   vec3 a = vec3(gl_in[0].gl_Position) - vec3(gl_in[1].gl_Position);
-   vec3 b = vec3(gl_in[2].gl_Position) - vec3(gl_in[1].gl_Position);
+vec3 get_normal() 
+{
+   vec3 a = vsViewPos[0] - vsViewPos[1];
+   vec3 b = vsViewPos[2] - vsViewPos[1];
    return normalize(cross(a, b));
 }
 

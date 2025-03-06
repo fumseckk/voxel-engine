@@ -11,11 +11,9 @@
 #include <map>
 #include <set>
 
-#include "../cube.h"
-
 #define CHUNKS_SIZE 16
 #define WORLD_HEIGHT 50
-#define RENDER_DISTANCE 15
+#define RENDER_DISTANCE 10
 
 GLenum glCheckError_(const char* file, int line) {
   GLenum errorCode;
@@ -50,7 +48,7 @@ enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP };
 #define FIRST_DIRECTION BACKWARD
 #define LAST_DIRECTION UP
 glm::ivec3 dir[]{
-    glm::ivec3(0, 0, -1), glm::ivec3(0, 0, 1),  glm::ivec3(-1, 0, 0),
+    glm::ivec3(0, 0, 1), glm::ivec3(0, 0, -1),  glm::ivec3(-1, 0, 0),
     glm::ivec3(1, 0, 0),  glm::ivec3(0, -1, 0), glm::ivec3(0, 1, 0),
 };
 
@@ -81,13 +79,6 @@ struct Face {
         assert(false);
     }
   }
-  // array<float, 12> get_uv() {
-  //   auto [topleft, botright] =
-  //   BlockAtlas::index_to_uv(get_blockatlas_index()); return array<float,
-  //   12>({
-  //     topleft.x,
-  //   });
-  // }
 };
 
 class Block {
@@ -106,10 +97,9 @@ class Block {
 
 struct ChunkMesh {
   VAO vao;
-  VBO vbo;
-  vector<float> buffer;
-  vector<Face> faces;
-  ChunkMesh() : vao(VAO()), vbo(VBO(GL_ARRAY_BUFFER, false)) {}
+  SSBO ssbo;
+  vector<glm::ivec4> buffer;
+  ChunkMesh(Shader* shader) : vao(VAO()), ssbo(SSBO(shader, false)) {}
   ~ChunkMesh() {}
 };
 
@@ -119,19 +109,16 @@ class Chunk {
   bool dirty = true;
   glm::ivec3 origin;
   int active_count = 0;
+  int faces_count = 0;
   int highest_block = 0;
   ChunkMesh mesh;
   int nb_blocks = CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE;
   Block blocks[CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE];
 
-  Chunk() { assert(false); }
-  Chunk(glm::ivec3 origin) {
+  Chunk() : mesh(ChunkMesh(nullptr)) { assert(false); }
+  Chunk(glm::ivec3 origin, Shader* shader) : mesh(ChunkMesh(shader)) {
     this->origin = origin * glm::ivec3(CHUNKS_SIZE, 0, CHUNKS_SIZE);
-    // set_random();
-    set_blocks();
-    mesh.vao.attr(mesh.vbo, 0, 3, GL_FLOAT, 5 * sizeof(float), 0);
-    mesh.vao.attr(mesh.vbo, 1, 2, GL_FLOAT, 5 * sizeof(float),
-                  3 * sizeof(float));
+    fill_with_terrain();
     dirty = true;
   }
 
@@ -141,9 +128,10 @@ class Chunk {
     float height =
       noise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
       0.5f;
-    return (int)((float)WORLD_HEIGHT * height);
+    return min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * height + 1));
   } 
-  void set_blocks() {
+
+  void fill_with_terrain() {
     float mx = 0.0f, mn = 10.0F;
     for (int x = 0; x < CHUNKS_SIZE; x++) {
       for (int z = 0; z < CHUNKS_SIZE; z++) {
@@ -203,10 +191,11 @@ class Chunk {
   }
 
   void create_faces(unordered_map<glm::ivec3, Chunk>& chunks) {
-    mesh.faces.clear();
+    faces_count = 0;
     if (active_count == 0) return;
+    mesh.buffer.clear();
     for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int y = 0; y < highest_block; y++) {
+      for (int y = 0; y < WORLD_HEIGHT; y++) {
         for (int z = 0; z < CHUNKS_SIZE; z++) {
           glm::ivec3 p(x, y, z);
           Block block = (*this)[p];
@@ -215,25 +204,23 @@ class Chunk {
               glm::ivec3 neigh = p + dir[d];
               if (in_range(neigh) && (*this)[neigh].is_active()) continue;
               // FIXME this will break someday
-              if (!in_range(neigh) && get_height(neigh.x, neigh.z) > y) continue;
-              mesh.faces.push_back(Face(block.type, (Direction)d, p));
+              // if (!in_range(neigh) && get_height(neigh.x, neigh.z) > y) continue;
+              faces_count++;
+              set_face_at_coords(Face(block.type, (Direction)d, p));
             }
           }
         }
       }
     }
-    assert(mesh.faces.size());
   }
 
-  void set_face_at_coords(float* dest, Face& face) {
-    int off = face.dir * FACE_SIZE;
-    for (int i = 0; i < FACE_SIZE; i += 5) {
-      dest[i + 0] = vertices[off + i + 0] + (float)(face.coords.x + origin.x);
-      dest[i + 1] = vertices[off + i + 1] + (float)(face.coords.y + origin.y);
-      dest[i + 2] = vertices[off + i + 2] + (float)(face.coords.z + origin.z);
-      dest[i + 3] = vertices[off + i + 3];
-      dest[i + 4] = vertices[off + i + 4];
-    }
+  void set_face_at_coords(Face face) {
+    mesh.buffer.push_back(glm::ivec4(
+      face.coords.x + origin.x,
+      face.coords.y + origin.y,
+      face.coords.z + origin.z,
+      face.dir
+    ));
   }
 
   glm::ivec3 retrieve_chunk_coords(glm::ivec3 p) {
@@ -250,21 +237,15 @@ class Chunk {
 
   void remesh(unordered_map<glm::ivec3, Chunk>& chunks) {
     create_faces(chunks);
-    if (mesh.faces.size() == 0) return;
-    mesh.buffer.resize(mesh.faces.size() * FACE_SIZE);
-    float* ptr = mesh.buffer.data();
-    for (Face& face : mesh.faces) {
-      set_face_at_coords(ptr, face);
-      ptr += FACE_SIZE;
-    }
-    mesh.vbo.buffer(mesh.buffer.data(), mesh.buffer.size() * sizeof(float));
+    if (faces_count == 0) return;
+    mesh.ssbo.set_buffer(mesh.buffer.data(), mesh.buffer.size() * sizeof(glm::ivec4), 0);
   }
 
   void render(Camera& camera) {
-    if (mesh.faces.size() == 0) return;
-    // glCheckError();
+    if (faces_count == 0) return;
+    mesh.ssbo.bind(0);
     mesh.vao.bind();
-    glDrawArrays(GL_TRIANGLES, 0, mesh.buffer.size() / VERTEX_SIZE);
+    glDrawArrays(GL_TRIANGLES, 0, mesh.buffer.size() * 6);
   }
 };
 
@@ -275,8 +256,7 @@ class World {
   unordered_map<glm::ivec3, Chunk> chunks;
   unordered_map<glm::ivec3, Chunk*> loaded_chunks;
   Shader shader =
-      Shader("resources/shaders/default.vert", "resources/shaders/default.frag",
-             "resources/shaders/default.geom");
+      Shader("resources/shaders/default.vert", "resources/shaders/default.frag");
   Texture texture = Texture("resources/textures/atlas.png");
   World() {}
   ~World() {}
@@ -322,9 +302,9 @@ class World {
         glm::ivec3 chunk_coords =
             glm::vec3(player_chunk_coords.x + x, 0, player_chunk_coords.z + z);
         if (chunks.find(chunk_coords) == chunks.end()) {
-          chunks.emplace(std::piecewise_construct,
-                         std::forward_as_tuple(chunk_coords),
-                         std::forward_as_tuple(chunk_coords));
+            chunks.emplace(std::piecewise_construct,
+                   std::forward_as_tuple(chunk_coords),
+                   std::forward_as_tuple(chunk_coords, &shader));
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
         } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
@@ -335,6 +315,7 @@ class World {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.63f, 0.86f, 1.0f, 1.0f);
     glm::mat4 v = camera.get_view_matrix();
+
     shader.use();
     shader.uniform_mat4("v", v);
     shader.uniform_vec3("viewPos", camera.position);
@@ -345,6 +326,7 @@ class World {
         chunk->remesh(this->chunks);
         chunk->dirty = false;
       }
+      // shader.uniform_vec3("viewPos", camera.position);
       chunk->render(camera);
     }
   }

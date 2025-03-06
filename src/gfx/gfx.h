@@ -13,6 +13,7 @@
 #include "shader.h"
 #include "vbo.h"
 #include "vao.h"
+#include "ssbo.h"
 #include "texture.h"
 #include "camera.h"
 #include "blockatlas.h"

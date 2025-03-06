@@ -28,10 +28,16 @@ FetchContent_GetProperties(glad)
 if(NOT glad_POPULATED)
     FetchContent_Populate(glad)
     set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
-    set(GLAD_API "gl=" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
+    set(GLAD_API "gl=4.6" CACHE STRING "API type/version pairs, like \"gl=4.6,gles=\", no version means latest")
     set(GLAD_GENERATOR "c" CACHE STRING "Language to generate the binding for")
     add_subdirectory(${glad_SOURCE_DIR} ${glad_BINARY_DIR})
 endif()
+
+
+# find_package(GLEW REQUIRED)
+# include_directories(${GLEW_INCLUDE_DIRS})
+# link_libraries(${GLEW_LIBRARIES})
+
 
 FetchContent_Declare(
         glm
@@ -50,3 +56,4 @@ add_executable(game
 	)
 
 target_link_libraries(game glfw glad glm)
+# target_link_libraries(game glfw GL glm)

@@ -10,7 +10,7 @@ uniform sampler2D tex;
 vec3 lightDir = vec3(-0.2, -1.0, -0.3);
 vec3 lightColor = vec3(1.0);
 
-uniform vec3 viewPos = vec3(100.0); // TODO pass this data
+uniform vec3 viewPos; // TODO pass this data
 
 void main() {
   vec3 objectColor = texture(tex, vsTex).xyz;
@@ -18,7 +18,7 @@ void main() {
   float ambientStrength = 0.4;
   vec3 ambient = ambientStrength * lightColor;
   
-  float diff = max(dot(vsNormal, lightDir), 0.0);
+  float diff = abs(dot(vsNormal, lightDir));
   vec3 diffuse = diff * lightColor;
   
   float specularStrength = 0.1;

@@ -192,7 +192,7 @@ class Chunk {
       face.coords.x,
       face.coords.y,
       face.coords.z,
-      face.dir
+      (face.dir | face.type << 4)
     ));
   }
 

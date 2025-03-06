@@ -66,7 +66,8 @@ void main() {
   int vertex_index = gl_VertexID % 6;
   ivec4 data = packed_data[face_index];
   vec3 position = data.xyz + chunkOrigin;
-  int dir = data.w;
+  int dir = data.w & 7;
+  int type = data.w >> 4;
   
   // prepare vertex data: uv and coords
   int index = indices_order[vertex_index];

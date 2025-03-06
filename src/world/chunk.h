@@ -13,7 +13,7 @@
 
 #define CHUNKS_SIZE 16
 #define WORLD_HEIGHT 50
-#define RENDER_DISTANCE 10
+#define RENDER_DISTANCE 25
 
 enum BlockType { EMPTY, GRASS, DIRT };
 
@@ -176,8 +176,9 @@ class Chunk {
             for (int d = FIRST_DIRECTION; d < LAST_DIRECTION + 1; d++) {
               glm::ivec3 neigh = p + dir[d];
               if (in_range(neigh) && (*this)[neigh].is_active()) continue;
+              if (y == 0 && d == (int)DOWN) continue;
               // FIXME this will break someday
-              // if (!in_range(neigh) && get_height(neigh.x, neigh.z) > y) continue;
+              if (!in_range(neigh) && get_height(neigh.x, neigh.z) > y) continue;
               faces_count++;
               set_face_at_coords(Face(block.type, (Direction)d, p));
             }
@@ -230,7 +231,7 @@ class World {
   unordered_map<glm::ivec3, Chunk*> loaded_chunks;
   Shader shader =
       Shader("resources/shaders/default.vert", "resources/shaders/default.frag");
-  Texture texture = Texture("resources/textures/atlas.png");
+  Texture texture = Texture("resources/textures/wooden_container.jpg");
   World() {}
   ~World() {}
 

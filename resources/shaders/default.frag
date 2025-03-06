@@ -15,13 +15,13 @@ uniform vec3 viewPos; // TODO pass this data
 void main() {
   vec3 objectColor = texture(tex, vsTex).xyz;
 
-  float ambientStrength = 0.4;
+  float ambientStrength = 0.2;
   vec3 ambient = ambientStrength * lightColor;
   
   float diff = abs(dot(vsNormal, lightDir));
   vec3 diffuse = diff * lightColor;
   
-  float specularStrength = 0.1;
+  float specularStrength = 0.2;
   vec3 viewDir = normalize(viewPos - vsFragPos);
   vec3 reflectDir = reflect(-lightDir, vsNormal);
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), 2);

@@ -15,33 +15,6 @@
 #define WORLD_HEIGHT 50
 #define RENDER_DISTANCE 10
 
-GLenum glCheckError_(const char* file, int line) {
-  GLenum errorCode;
-  while ((errorCode = glGetError()) != GL_NO_ERROR) {
-    std::string error;
-    switch (errorCode) {
-      case GL_INVALID_ENUM:
-        error = "INVALID_ENUM";
-        break;
-      case GL_INVALID_VALUE:
-        error = "INVALID_VALUE";
-        break;
-      case GL_INVALID_OPERATION:
-        error = "INVALID_OPERATION";
-        break;
-      case GL_OUT_OF_MEMORY:
-        error = "OUT_OF_MEMORY";
-        break;
-      case GL_INVALID_FRAMEBUFFER_OPERATION:
-        error = "INVALID_FRAMEBUFFER_OPERATION";
-        break;
-    }
-    std::cout << error << " | " << file << " (" << line << ")" << std::endl;
-  }
-  return errorCode;
-}
-#define glCheckError() glCheckError_(__FILE__, __LINE__)
-
 enum BlockType { EMPTY, GRASS, DIRT };
 
 enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP };
@@ -216,9 +189,9 @@ class Chunk {
 
   void set_face_at_coords(Face face) {
     mesh.buffer.push_back(glm::ivec4(
-      face.coords.x + origin.x,
-      face.coords.y + origin.y,
-      face.coords.z + origin.z,
+      face.coords.x,
+      face.coords.y,
+      face.coords.z,
       face.dir
     ));
   }
@@ -326,7 +299,7 @@ class World {
         chunk->remesh(this->chunks);
         chunk->dirty = false;
       }
-      // shader.uniform_vec3("viewPos", camera.position);
+      shader.uniform_vec3("chunkOrigin", chunk->origin);
       chunk->render(camera);
     }
   }

@@ -1,8 +1,7 @@
 #version 460 core
-// layout (location = 0) in vec3 aPos;
-// layout (location = 1) in vec2 aTex;
 
 uniform mat4 v, p;
+uniform vec3 chunkOrigin;
 
 out vec2 vsTex;
 out vec3 vsFragPos;
@@ -66,7 +65,7 @@ void main() {
   int face_index = gl_VertexID / 6; // TODO
   int vertex_index = gl_VertexID % 6;
   ivec4 data = packed_data[face_index];
-  vec3 position = data.xyz;
+  vec3 position = data.xyz + chunkOrigin;
   int dir = data.w;
   
   // prepare vertex data: uv and coords

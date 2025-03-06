@@ -19,7 +19,7 @@ void main() {
   vec3 ambient = ambientStrength * lightColor;
   
   float diff = max(dot(vsNormal, lightDir), 0.0);
-  vec3 diffuse = diff * objectColor;
+  vec3 diffuse = diff * lightColor;
   
   float specularStrength = 0.1;
   vec3 viewDir = normalize(viewPos - vsFragPos);

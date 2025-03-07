@@ -11,8 +11,9 @@
 #include <map>
 #include <set>
 #include <thread>
+#include <future>
 
-#define MAX_ACTIVE_THREADS 10
+// #define MAX_ACTIVE_THREADS 10
 #define CHUNKS_SIZE 32
 #define WORLD_HEIGHT 50
 #define RENDER_DISTANCE 20
@@ -264,7 +265,7 @@ class World {
   const int chunks_size = CHUNKS_SIZE;
   unordered_map<glm::ivec3, Chunk> chunks;
   unordered_map<glm::ivec3, Chunk*> loaded_chunks;
-  vector<pair<Chunk*, std::thread>> active_threads;
+  vector<pair<Chunk*, std::future<void>>> active_threads;
   Shader shader = Shader("resources/shaders/default.vert",
                          "resources/shaders/default.frag");
   Texture texture = Texture("resources/textures/grass_block.png");
@@ -290,6 +291,11 @@ class World {
   Block operator[](glm::ivec3 p) {
     Chunk chunk = retrieve_chunk(p);
     return chunk[p & glm::ivec3(chunks_size - 1)];
+  }
+
+  template<typename T>
+  bool thread_is_done(std::future<T>& t) {
+    return t.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
   }
 
   void render(Camera& camera) {
@@ -333,36 +339,30 @@ class World {
     shader.uniform_vec3("viewPos", camera.position);
 
 
+
     
-    vector<bool> done;
+
     for (auto& [coords, chunk] : loaded_chunks) {
-      if (chunk->dirty && !chunk->meshing && active_threads.size() <= MAX_ACTIVE_THREADS) {
+      if (chunk->dirty && !chunk->meshing) {
         chunk->meshing = true;
-        active_threads.emplace_back(make_pair(chunk, [chunk, this]() {
+        active_threads.emplace_back(make_pair(chunk, std::async(std::launch::async, [chunk, this]() {
           chunk->prepare_mesh_data(this->chunks);
-        }));
+        })));
       }
     }
     
     // TODO change this to just wait until it has finished
     // right now the join time is the same for every chunk no matter when it started loading
-    const int FRAMES_TO_WAIT = 15;
-    static int join_threads = FRAMES_TO_WAIT;
-    join_threads--;
-    if (join_threads == 0) {
-      join_threads = FRAMES_TO_WAIT;
-      for (auto it = active_threads.begin(); it != active_threads.end(); ) {
-        auto& [chunk, t] = *it;
-        if (t.joinable()) {
-          t.join();
-          chunk->upload_to_gpu();
-          chunk->dirty = false;
-          chunk->meshing = false;
-          it = active_threads.erase(it);
-        }
-        else {
-          ++it;
-        }
+    for (auto it = active_threads.begin(); it != active_threads.end(); ) {
+      auto& [chunk, t] = *it;
+      if (thread_is_done(t)) {
+        chunk->upload_to_gpu();
+        chunk->dirty = false;
+        chunk->meshing = false;
+        it = active_threads.erase(it);
+      }
+      else {
+        ++it;
       }
     }
     
@@ -376,12 +376,12 @@ class World {
   }
 
   void cleanup() {
-    for (auto& [chunk, t] : active_threads) {
-      if (t.joinable()) {
-        t.join();
-      }
-    }
-    active_threads.clear();
+    // for (auto& [chunk, t] : active_threads) {
+    //   if (t.joinable()) {
+    //     t.join();
+    //   }
+    // }
+    // active_threads.clear();
   }
 };
 

@@ -13,7 +13,7 @@
 #include <thread>
 #include <future>
 
-// #define MAX_ACTIVE_THREADS 10
+#define MAX_ACTIVE_THREADS 16
 #define CHUNKS_SIZE 32
 #define WORLD_HEIGHT 50
 #define RENDER_DISTANCE 20
@@ -343,7 +343,7 @@ class World {
     
 
     for (auto& [coords, chunk] : loaded_chunks) {
-      if (chunk->dirty && !chunk->meshing) {
+      if (chunk->dirty && !chunk->meshing && active_threads.size() < MAX_ACTIVE_THREADS) {
         chunk->meshing = true;
         active_threads.emplace_back(make_pair(chunk, std::async(std::launch::async, [chunk, this]() {
           chunk->prepare_mesh_data(this->chunks);

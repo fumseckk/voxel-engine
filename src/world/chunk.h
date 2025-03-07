@@ -76,9 +76,7 @@ struct ChunkMesh {
   SSBO ssbo;
   vector<glm::ivec4> buffer;
   int faces_count = 0;
-  ChunkMesh() : ssbo(SSBO(nullptr, false)) {
-    // assert(false);
-  }
+  ChunkMesh() : ssbo(SSBO(nullptr, false)) { assert(false); }
   ChunkMesh(Shader* shader) : vao(VAO()), ssbo(SSBO(shader, false)) {}
   ~ChunkMesh() {}
 };

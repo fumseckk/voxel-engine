@@ -4,8 +4,9 @@
 #include "ui/ui.h"
 #include "world/chunk.h"
 
-// TODO Cube types with block atlas
-// TODO edit noise to add water etc
+// TODO Create cube textures
+// TODO make interesting noise, add water, etc
+// TODO add trees ?
 
 int main(int argc, char** argv) {
   std::srand(std::time({}));
@@ -23,7 +24,6 @@ int main(int argc, char** argv) {
   while (!glfwWindowShouldClose(window)) {
     window.begin_frame();
     camera.move();
-    // world.texture.bind();
     world.render(camera);
     window.end_frame();
     glCheckError();

@@ -6,6 +6,7 @@ uniform vec3 chunkOrigin;
 out vec2 vsTex;
 out vec3 vsFragPos;
 out vec3 vsNormal;
+out float vsType;
 
 layout(std430, binding = 0) readonly buffer vertexPullBuffer
 {
@@ -60,23 +61,33 @@ const vec2 uv_order[] = vec2[]
   vec2(0, 1)
 );
 
+
+const float type_and_dir_to_texture[] = float[]
+(
+  1, 1, 1, 1, 2, 0, // 00: grass
+  2, 2, 2, 2, 2, 2, // 01 : dirt
+  3, 3, 3, 3, 3, 3, // 02 : sand
+  4, 4, 4, 4, 4, 4  // 03 : stone
+);
+
+
 void main() {
   // prepare indices & unpack data
-  int face_index = gl_VertexID / 6; // TODO
+  int face_index = gl_VertexID / 6;
   int vertex_index = gl_VertexID % 6;
   ivec4 data = packed_data[face_index];
   vec3 position = data.xyz + chunkOrigin;
   int dir = data.w & 7;
-  int type = data.w >> 4;
+  int block_type = data.w >> 4;
   
   // prepare vertex data: uv and coords
   int index = indices_order[vertex_index];
   position += vertex_positions[indices[index + 4*dir]];
-  vec2 uv = uv_order[index];
 
   // set out variables
   gl_Position = p * v * vec4(position, 1.0);
   vsFragPos = gl_Position.xyz;
-  vsTex = uv;
+  vsTex = uv_order[index];
   vsNormal = normals[dir];
+  vsType = type_and_dir_to_texture[(block_type - 1)*6 + dir];
 }

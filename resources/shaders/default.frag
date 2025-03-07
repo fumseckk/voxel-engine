@@ -3,9 +3,10 @@ out vec4 FragColor;
 in vec2 vsTex;
 in vec3 vsFragPos;
 in vec3 vsNormal;
+in float vsType;
 
-uniform sampler2D tex;
 
+uniform sampler2DArray texArray;
 
 vec3 lightDir = vec3(-0.2, -1.0, -0.3);
 vec3 lightColor = vec3(1.0);
@@ -13,7 +14,7 @@ vec3 lightColor = vec3(1.0);
 uniform vec3 viewPos; // TODO pass this data
 
 void main() {
-  vec3 objectColor = texture(tex, vsTex).xyz;
+  vec3 objectColor = texture(texArray, vec3(vsTex, vsType)).xyz;
 
   float ambientStrength = 0.2;
   vec3 ambient = ambientStrength * lightColor;

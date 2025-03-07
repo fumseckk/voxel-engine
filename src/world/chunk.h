@@ -18,7 +18,7 @@
 #define WORLD_HEIGHT 50
 #define RENDER_DISTANCE 20
 
-enum BlockType { EMPTY, GRASS, DIRT };
+enum BlockType { EMPTY, GRASS, DIRT, SAND, STONE };
 
 enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP };
 #define FIRST_DIRECTION BACKWARD
@@ -88,7 +88,6 @@ class Chunk {
   bool meshing = false;
   glm::ivec3 origin;
   int active_count = 0;
-  int highest_block = 0;
   ChunkMesh mesh[6];
   int nb_blocks = CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE;
   Block blocks[CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE];
@@ -124,10 +123,11 @@ class Chunk {
   }
 
   int get_height(int x, int z) {
-    float height =
+    float height1 =
         noise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
         0.5f;
-    return min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * height + 1));
+    height1 = height1 * height1;
+    return min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * height1 + 1));
   }
 
   void fill_with_terrain() {
@@ -136,10 +136,10 @@ class Chunk {
       for (int z = 0; z < CHUNKS_SIZE; z++) {
         int scaled_height = get_height(x, z);
         for (int y = 0; y + origin.y < scaled_height && y < WORLD_HEIGHT; y++) {
-          blocks[ivec3_to_index(glm::ivec3(x, y, z))].set_active(true);
+          blocks[ivec3_to_index(glm::ivec3(x, y, z))].type = DIRT;
           active_count++;
         }
-        highest_block = max(highest_block, scaled_height);
+        blocks[ivec3_to_index(glm::ivec3(x, scaled_height - origin.y, z))].type = GRASS;
       }
     }
   }
@@ -266,7 +266,7 @@ class World {
   vector<pair<Chunk*, std::future<void>>> active_threads;
   Shader shader = Shader("resources/shaders/default.vert",
                          "resources/shaders/default.frag");
-  Texture texture = Texture("resources/textures/grass_block.png");
+  TextureArray texture_array = TextureArray("resources/textures");
   World() {}
   ~World() {
     cleanup();

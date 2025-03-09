@@ -68,7 +68,9 @@ const float type_and_dir_to_texture[] = float[]
   2, 2, 2, 2, 2, 2, // 01 : dirt
   3, 3, 3, 3, 3, 3, // 02 : sand
   4, 4, 4, 4, 4, 4,  // 03 : stone
-  5, 5, 5, 5, 5, 5  // 04: snow
+  5, 5, 5, 5, 5, 5,  // 04: snow
+  6, 6, 6, 6, 6, 6,  // 05 flower1
+  7, 7, 7, 7, 7, 7   // 06 flower2
 );
 
 
@@ -90,8 +92,9 @@ void main() {
   vsFragPos = gl_Position.xyz;
   vsTex = uv_order[index];
   vsNormal = normals[dir];
+  
   if (type < 50) { // solid blocks
-    vsType = type_and_dir_to_texture[(type - 1)*6 + dir];
+    vsType = type_and_dir_to_texture[type*6 + dir];
   }
   else if (type < 70) { // liquid
 

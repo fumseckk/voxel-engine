@@ -2,7 +2,7 @@
 #include <ctime>
 #include "gfx/gfx.h"
 #include "ui/ui.h"
-#include "world/chunk.h"
+#include "world/world.h"
 
 // TODO Create cube textures
 // TODO make interesting noise, add water, etc

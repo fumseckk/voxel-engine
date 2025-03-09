@@ -36,7 +36,6 @@ struct ChunkMesh {
 
 class Chunk {
  public:
-  FastNoiseLite* noise;
   bool dirty = true;
   bool meshing = false;
   glm::ivec3 origin;
@@ -46,38 +45,14 @@ class Chunk {
   Block blocks[CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE];
 
   Chunk() { assert(false); }
-  Chunk(glm::ivec3 origin, Shader* shader, FastNoiseLite* noise)
-      : noise(noise),
-        mesh{ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader),
+  Chunk(glm::ivec3 origin, Shader* shader)
+      : mesh{ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader),
              ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader)} {
     this->origin = origin * glm::ivec3(CHUNKS_SIZE, 0, CHUNKS_SIZE);
-    fill_with_terrain();
     dirty = true;
   }
 
   ~Chunk() {};
-
-  int get_height(int x, int z) {
-    float height =
-        noise->GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
-        0.5f;
-    height = powf(height, 2);
-    return min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * height + 1));
-  }
-
-  void fill_with_terrain() {
-    for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int z = 0; z < CHUNKS_SIZE; z++) {
-        int scaled_height = get_height(x, z);
-        for (int y = 0; y + origin.y < scaled_height && y < WORLD_HEIGHT; y++) {
-          blocks[ivec3_to_index(glm::ivec3(x, y, z))].type = DIRT;
-          active_count++;
-        }
-        blocks[ivec3_to_index(glm::ivec3(x, scaled_height - origin.y, z))]
-            .type = GRASS;
-      }
-    }
-  }
 
   bool player_sees_face(Camera& camera, Direction dir) {
     glm::vec3 pos = camera.position;
@@ -143,6 +118,35 @@ class Chunk {
     return blocks[ivec3_to_index(p)];
   }
 
+  glm::ivec3 retrieve_chunk_coords(glm::ivec3 p) {
+    // division rounded down for consistency in the negatives
+    return glm::floor((glm::vec3)p / glm::vec3(CHUNKS_SIZE));
+  }
+  
+  // Check if a neighboring chunk exists
+  bool chunk_exists(glm::ivec3 chunk_coords, unordered_map<glm::ivec3, Chunk>& chunks) {
+    return chunks.find(chunk_coords) != chunks.end();
+  }
+  
+  // Get a block from world coordinates, even if it's in another chunk
+  std::optional<Block> get_world_block(glm::ivec3 world_pos, unordered_map<glm::ivec3, Chunk>& chunks) {
+    glm::ivec3 chunk_coords = retrieve_chunk_coords(world_pos);
+    
+    if (!chunk_exists(chunk_coords, chunks)) {
+      return std::nullopt;
+    }
+    
+    // Convert world position to local position within the chunk
+    glm::ivec3 local_pos = world_pos - chunk_coords * glm::ivec3(CHUNKS_SIZE, 0, CHUNKS_SIZE);
+    
+    // Make sure the position is in range
+    if (local_pos.y < 0 || local_pos.y >= WORLD_HEIGHT) {
+      return std::nullopt;
+    }
+    
+    return chunks[chunk_coords][local_pos];
+  }
+
   void create_faces(unordered_map<glm::ivec3, Chunk>& chunks) {
     if (active_count == 0) return;
     for (int d = FIRST_DIRECTION; d < LAST_DIRECTION + 1; d++) {
@@ -153,13 +157,28 @@ class Chunk {
           for (int z = 0; z < CHUNKS_SIZE; z++) {
             glm::ivec3 p(x, y, z);
             Block block = (*this)[p];
-            if ((*this)[p].is_active()) {
+            if (block.is_active()) {
               glm::ivec3 neigh = p + dir[d];
-              if (in_range(neigh) && (*this)[neigh].is_active()) continue;
-              if (y == 0 && d == (int)DOWN) continue;
-              // FIXME this will break someday
-              if (!in_range(neigh) && get_height(neigh.x, neigh.z) > y)
-                continue;
+              
+              // Handle block within the same chunk
+              if (in_range(neigh)) {
+                if ((*this)[neigh].is_active()) continue;
+              }
+              // Handle block in a neighboring chunk
+              else {
+                // Convert local position to world position
+                glm::ivec3 world_pos = origin + neigh;
+                auto neighbor_block = get_world_block(world_pos, chunks);
+                
+                // Skip face creation if there's a block in the neighboring chunk
+                if (neighbor_block.has_value() && neighbor_block.value().is_active()) {
+                  continue;
+                }
+                
+                // Special case for bottom blocks (don't render bottom face at y=0)
+                if (y == 0 && d == (int)DOWN) continue;
+              }
+              
               mesh[d].faces_count++;
               set_face_at_coords(p, (Direction)d, block.type);
             }
@@ -173,18 +192,6 @@ class Chunk {
     // TODO enlever la direction d'ici et en faire un autre ssbo chunk-wise
     mesh[dir].buffer.push_back(
         glm::ivec4(coords.x, coords.y, coords.z, dir | type << 4));
-  }
-
-  glm::ivec3 retrieve_chunk_coords(glm::ivec3 p) {
-    // division rounded down for consistency in the negatives
-    return glm::floor((glm::vec3)p / glm::vec3(CHUNKS_SIZE));
-  }
-  Chunk retrieve_chunk(glm::ivec3 p, unordered_map<glm::ivec3, Chunk>& chunks) {
-    return chunks[retrieve_chunk_coords(p)];
-  }
-  Block get_world(glm::ivec3 p, unordered_map<glm::ivec3, Chunk>& chunks) {
-    Chunk chunk = retrieve_chunk(p, chunks);
-    return chunk[p & glm::ivec3(CHUNKS_SIZE - 1)];
   }
 
   void prepare_mesh_data(unordered_map<glm::ivec3, Chunk>& chunks) {

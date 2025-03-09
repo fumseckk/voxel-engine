@@ -67,7 +67,8 @@ const float type_and_dir_to_texture[] = float[]
   1, 1, 1, 1, 2, 0, // 00: grass
   2, 2, 2, 2, 2, 2, // 01 : dirt
   3, 3, 3, 3, 3, 3, // 02 : sand
-  4, 4, 4, 4, 4, 4  // 03 : stone
+  4, 4, 4, 4, 4, 4,  // 03 : stone
+  5, 5, 5, 5, 5, 5  // 04: snow
 );
 
 
@@ -78,7 +79,7 @@ void main() {
   ivec4 data = packed_data[face_index];
   vec3 position = data.xyz + chunkOrigin;
   int dir = data.w & 7;
-  int block_type = data.w >> 4;
+  int type = data.w >> 4;
   
   // prepare vertex data: uv and coords
   int index = indices_order[vertex_index];
@@ -89,5 +90,10 @@ void main() {
   vsFragPos = gl_Position.xyz;
   vsTex = uv_order[index];
   vsNormal = normals[dir];
-  vsType = type_and_dir_to_texture[(block_type - 1)*6 + dir];
+  if (type < 50) { // solid blocks
+    vsType = type_and_dir_to_texture[(type - 1)*6 + dir];
+  }
+  else if (type < 70) { // liquid
+
+  }
 }

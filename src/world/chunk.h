@@ -5,7 +5,11 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/hash.hpp"
 
+
+#include "../params.h"
 #include "fastnoiselite.h"
+#include "blocks.h"
+
 #include <vector>
 #include <optional>
 #include <map>
@@ -13,12 +17,6 @@
 #include <thread>
 #include <future>
 
-#define MAX_ACTIVE_THREADS 16
-#define CHUNKS_SIZE 32
-#define WORLD_HEIGHT 50
-#define RENDER_DISTANCE 20
-
-enum BlockType { EMPTY, GRASS, DIRT, SAND, STONE };
 
 enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP };
 #define FIRST_DIRECTION BACKWARD
@@ -28,53 +26,12 @@ glm::ivec3 dir[]{
     glm::ivec3(1, 0, 0), glm::ivec3(0, -1, 0), glm::ivec3(0, 1, 0),
 };
 
-struct Face {
- public:
-  BlockType type;
-  Direction dir;
-  glm::ivec3 coords;
-  Face(BlockType type, Direction dir, glm::ivec3 coords)
-      : type(type), dir(dir), coords(coords) {}
-  int get_blockatlas_index() {
-    switch (type) {
-      case EMPTY:
-        assert(false);
-        break;
-      case DIRT:
-        return 2;
-      case GRASS:
-        switch (dir) {
-          case UP:
-            return 0;
-          case DOWN:
-            return 1;
-          default:
-            return 2;
-        }
-      default:
-        assert(false);
-    }
-  }
-};
 
-class Block {
- public:
-  BlockType type;
-  Block() : type(EMPTY) {}
-  Block(BlockType type) : type(type) {}
-  void set_active(bool b) {
-    if (b)
-      type = GRASS;
-    else
-      type = EMPTY;
-  }
-  bool is_active() { return type != EMPTY; }
-};
 
 struct ChunkMesh {
+  vector<glm::ivec4> buffer;
   VAO vao;
   SSBO ssbo;
-  vector<glm::ivec4> buffer;
   int faces_count = 0;
   ChunkMesh() : ssbo(SSBO(nullptr, false)) { assert(false); }
   ChunkMesh(Shader* shader) : vao(VAO()), ssbo(SSBO(shader, false)) {}
@@ -83,7 +40,7 @@ struct ChunkMesh {
 
 class Chunk {
  public:
-  FastNoiseLite noise;
+  FastNoiseLite* noise;
   bool dirty = true;
   bool meshing = false;
   glm::ivec3 origin;
@@ -93,9 +50,10 @@ class Chunk {
   Block blocks[CHUNKS_SIZE * WORLD_HEIGHT * CHUNKS_SIZE];
 
   Chunk() { assert(false); }
-  Chunk(glm::ivec3 origin, Shader* shader)
-      : mesh{ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader),
-              ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader)} {
+  Chunk(glm::ivec3 origin, Shader* shader, FastNoiseLite* noise)
+      : noise(noise),
+        mesh{ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader),
+             ChunkMesh(shader), ChunkMesh(shader), ChunkMesh(shader)} {
     this->origin = origin * glm::ivec3(CHUNKS_SIZE, 0, CHUNKS_SIZE);
     fill_with_terrain();
     dirty = true;
@@ -103,9 +61,28 @@ class Chunk {
 
   ~Chunk() {};
 
+  int get_height(int x, int z) {
+    float height = noise->GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 + 0.5f;
+    return min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * height + 1));
+  }
+
+  void fill_with_terrain() {
+    for (int x = 0; x < CHUNKS_SIZE; x++) {
+      for (int z = 0; z < CHUNKS_SIZE; z++) {
+        int scaled_height = get_height(x, z);
+        for (int y = 0; y + origin.y < scaled_height && y < WORLD_HEIGHT; y++) {
+          blocks[ivec3_to_index(glm::ivec3(x, y, z))].type = DIRT;
+          active_count++;
+        }
+        blocks[ivec3_to_index(glm::ivec3(x, scaled_height - origin.y, z))]
+            .type = GRASS;
+      }
+    }
+  }
+
   bool player_sees_face(Camera& camera, Direction dir) {
     glm::vec3 pos = camera.position;
-    switch(dir) {
+    switch (dir) {
       case BACKWARD:
         return pos.z >= origin.z;
       case FORWARD:
@@ -119,28 +96,6 @@ class Chunk {
         return true;
       default:
         assert(false);
-    }
-  }
-
-  int get_height(int x, int z) {
-    float height1 =
-        noise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 +
-        0.5f;
-    height1 = height1 * height1;
-    return min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * height1 + 1));
-  }
-
-  void fill_with_terrain() {
-    float mx = 0.0f, mn = 10.0F;
-    for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int z = 0; z < CHUNKS_SIZE; z++) {
-        int scaled_height = get_height(x, z);
-        for (int y = 0; y + origin.y < scaled_height && y < WORLD_HEIGHT; y++) {
-          blocks[ivec3_to_index(glm::ivec3(x, y, z))].type = DIRT;
-          active_count++;
-        }
-        blocks[ivec3_to_index(glm::ivec3(x, scaled_height - origin.y, z))].type = GRASS;
-      }
     }
   }
 
@@ -236,13 +191,13 @@ class Chunk {
   void prepare_mesh_data(unordered_map<glm::ivec3, Chunk>& chunks) {
     create_faces(chunks);
   }
-  
+
   // Called on main thread only
   void upload_to_gpu() {
     if (active_count == 0) return;
     for (int d = 0; d < 6; d++) {
       mesh[d].ssbo.set_buffer(mesh[d].buffer.data(),
-                             mesh[d].buffer.size() * sizeof(glm::ivec4), 0);
+                              mesh[d].buffer.size() * sizeof(glm::ivec4), 0);
     }
   }
 
@@ -261,16 +216,18 @@ class World {
  public:
   const int render_distance = RENDER_DISTANCE;
   const int chunks_size = CHUNKS_SIZE;
+  FastNoiseLite noise;
   unordered_map<glm::ivec3, Chunk> chunks;
   unordered_map<glm::ivec3, Chunk*> loaded_chunks;
   vector<pair<Chunk*, std::future<void>>> active_threads;
   Shader shader = Shader("resources/shaders/default.vert",
                          "resources/shaders/default.frag");
   TextureArray texture_array = TextureArray("resources/textures");
-  World() {}
-  ~World() {
-    cleanup();
+  World() {
+    noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+    noise.SetFractalWeightedStrength(2.0f);
   }
+  ~World() {}
 
   void prepare(Camera& camera) {
     shader.use();
@@ -291,16 +248,12 @@ class World {
     return chunk[p & glm::ivec3(chunks_size - 1)];
   }
 
-  template<typename T>
+  template <typename T>
   bool thread_is_done(std::future<T>& t) {
     return t.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
   }
 
-  void render(Camera& camera) {
-    glm::ivec3 player_coords = glm::ivec3(camera.position);
-    glm::ivec3 player_chunk_coords = retrieve_chunk_coords(player_coords);
-
-    // Unload chunks that are too far
+  void unload_far_chunks(glm::ivec3& player_chunk_coords) {
     for (auto it = loaded_chunks.cbegin(); it != loaded_chunks.cend();) {
       Chunk* chunk = it->second;
       glm::ivec3 orig = chunk->origin - player_chunk_coords;
@@ -310,8 +263,9 @@ class World {
       else
         it++;
     }
+  }
 
-    // Load chunks that became close, create them if needed
+  void load_close_chunks(glm::ivec3& player_chunk_coords) {
     for (int x = -render_distance; x < render_distance; x++) {
       for (int z = -render_distance; z < render_distance; z++) {
         if (x * x + z * z > render_distance * render_distance) continue;
@@ -320,14 +274,16 @@ class World {
         if (chunks.find(chunk_coords) == chunks.end()) {
           chunks.emplace(std::piecewise_construct,
                          std::forward_as_tuple(chunk_coords),
-                         std::forward_as_tuple(chunk_coords, &shader));
+                         std::forward_as_tuple(chunk_coords, &shader, &noise));
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
         } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
         }
       }
     }
+  }
 
+  void set_view_clear(Camera& camera) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.63f, 0.86f, 1.0f, 1.0f);
     glm::mat4 v = camera.get_view_matrix();
@@ -335,51 +291,53 @@ class World {
     shader.use();
     shader.uniform_mat4("v", v);
     shader.uniform_vec3("viewPos", camera.position);
+  }
 
-
-
-    
-
+  void add_chunks_to_render_queue() {
     for (auto& [coords, chunk] : loaded_chunks) {
-      if (chunk->dirty && !chunk->meshing && active_threads.size() < MAX_ACTIVE_THREADS) {
+      if (chunk->dirty && !chunk->meshing &&
+          active_threads.size() < MAX_ACTIVE_THREADS) {
         chunk->meshing = true;
-        active_threads.emplace_back(make_pair(chunk, std::async(std::launch::async, [chunk, this]() {
-          chunk->prepare_mesh_data(this->chunks);
-        })));
+        active_threads.emplace_back(
+            make_pair(chunk, std::async(std::launch::async, [chunk, this]() {
+                        chunk->prepare_mesh_data(this->chunks);
+                      })));
       }
     }
-    
-    // TODO change this to just wait until it has finished
-    // right now the join time is the same for every chunk no matter when it started loading
-    for (auto it = active_threads.begin(); it != active_threads.end(); ) {
+  }
+
+  void cleanup_meshed_chunks() {
+    for (auto it = active_threads.begin(); it != active_threads.end();) {
       auto& [chunk, t] = *it;
       if (thread_is_done(t)) {
         chunk->upload_to_gpu();
         chunk->dirty = false;
         chunk->meshing = false;
         it = active_threads.erase(it);
-      }
-      else {
+      } else {
         ++it;
       }
     }
-    
-    // Render all chunks
+  }
+
+  void render_chunks(Camera& camera) {
     for (auto& [coords, chunk] : loaded_chunks) {
       if (chunk->dirty) continue;
-
       shader.uniform_vec3("chunkOrigin", chunk->origin);
       chunk->render(camera);
     }
   }
 
-  void cleanup() {
-    // for (auto& [chunk, t] : active_threads) {
-    //   if (t.joinable()) {
-    //     t.join();
-    //   }
-    // }
-    // active_threads.clear();
+  void render(Camera& camera) {
+    glm::ivec3 player_coords = glm::ivec3(camera.position);
+    glm::ivec3 player_chunk_coords = retrieve_chunk_coords(player_coords);
+
+    unload_far_chunks(player_chunk_coords);
+    load_close_chunks(player_chunk_coords);
+    set_view_clear(camera);
+    add_chunks_to_render_queue();
+    cleanup_meshed_chunks();
+    render_chunks(camera);
   }
 };
 

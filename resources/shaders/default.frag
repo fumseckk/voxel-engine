@@ -14,6 +14,8 @@ vec3 lightColor = vec3(1.0);
 uniform vec3 viewPos; // TODO pass this data
 
 void main() {
+  vec4 tex = texture(texArray, vec3(vsTex, vsType));
+  if (tex.a < 0.01) discard;
   vec3 objectColor = texture(texArray, vec3(vsTex, vsType)).xyz;
 
   float ambientStrength = 0.2;

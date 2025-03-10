@@ -34,22 +34,22 @@ class WorldGenerator {
 
   WorldGenerator() {
     // Setup height noise
-    heightNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    heightNoise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     heightNoise.SetFractalType(FastNoiseLite::FractalType_FBm);
     heightNoise.SetFractalWeightedStrength(2.0f);
     
     // Setup biome noise (larger scale)
-    biomeNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    biomeNoise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     biomeNoise.SetFrequency(0.01f);
     
     // Setup river noise
-    riverNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    riverNoise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     riverNoise.SetFractalType(FastNoiseLite::FractalType_FBm);
     riverNoise.SetFractalOctaves(4);
     riverNoise.SetFrequency(0.008f);
     
     // Detail noise for small terrain variations
-    detailNoise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    detailNoise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     detailNoise.SetFrequency(0.05f);
     
     // Set water level (about 40% up from the bottom)
@@ -148,9 +148,7 @@ class WorldGenerator {
   float get_biome_height_modifier(BiomeType biome, float baseHeight) {
     switch (biome) {
       case MOUNTAINS:
-        // Create more dramatic, peaky mountains
-        return powf(baseHeight, 3.0f) * 1.8f + 
-               detailNoise.GetNoise((float)(baseHeight * 100), baseHeight * 50) * 0.15f;
+        return powf(baseHeight, 2.0f) * 0.9f;
       case PLAINS:
         return powf(baseHeight, 0.8f) * 0.7f; // Flatter terrain
       case DESERT:
@@ -166,8 +164,8 @@ class WorldGenerator {
 
   int get_height(int x, int z, glm::ivec3 origin) {
     // Get base height
-    float baseHeight = heightNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0 + 0.5f;
-    
+    float baseHeight = heightNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0f + 0.5f;
+    baseHeight += (detailNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0f + 0.5f) * 0.01f;
     // Biome influences to create smooth transitions
     std::vector<BiomeInfluence> biomeInfluences = get_biome_influences(x, z, origin);
     
@@ -182,20 +180,10 @@ class WorldGenerator {
     float riverStrength = get_river_strength(x, z, origin);
     if (riverStrength > 0.0f) {
         float riverDepth = 0.1f + blendedHeight * 0.1f; // Make deeper rivers in higher terrain
-        
-        // The closer to the center of the river, the deeper it gets
         float riverDepthAtPoint = riverDepth * riverStrength;
-        
-        // Ensure river bottom doesn't go below minimum water level
         float minRiverBottom = (float)waterLevel / WORLD_HEIGHT - 0.05f;
-        
-        // Apply river carving
         blendedHeight = std::max(minRiverBottom, blendedHeight - riverDepthAtPoint);
-        
-        // Recalculate height after river carving
         int terrainHeight = min(WORLD_HEIGHT - 1, (int)((float)WORLD_HEIGHT * blendedHeight + 1));
-        
-        // River height can't be above natural terrain height
         return std::min(terrainHeight, naturalTerrainHeight);
     }
 

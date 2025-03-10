@@ -3,7 +3,7 @@
 
 #define MAX_ACTIVE_THREADS 16
 #define CHUNKS_SIZE 32
-#define WORLD_HEIGHT 200
+#define WORLD_HEIGHT 100
 #define RENDER_DISTANCE 20
 
 #endif

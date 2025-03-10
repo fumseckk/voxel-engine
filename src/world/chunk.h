@@ -137,7 +137,7 @@ class Chunk {
               
               // Handle block within the same chunk
               if (in_range(neigh)) {
-                if ((*this)[neigh].type != AIR) continue;
+                if ((*this)[neigh].type != AIR && (*this)[neigh].type != LEAVES) continue;
               }
               // Handle block in a neighboring chunk
               else {
@@ -146,7 +146,7 @@ class Chunk {
                 auto neighbor_block = get_world_block(world_pos, chunks);
                 
                 // Skip face creation if there's a block in the neighboring chunk
-                if (neighbor_block.has_value() && neighbor_block.value().type != AIR) {
+                if (neighbor_block.has_value() && neighbor_block.value().type != AIR && neighbor_block.value().type != LEAVES) {
                   continue;
                 }
                 

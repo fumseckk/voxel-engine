@@ -10,7 +10,9 @@ enum BlockType {
     SNOW = 5,
     FLOWER1 = 6,
     FLOWER2 = 7,
-    WATER = 8,
+    LOGS = 8,
+    LEAVES = 9,
+    WATER = 10,
 };
 
 struct Block {

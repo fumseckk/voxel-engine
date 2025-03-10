@@ -72,7 +72,9 @@ const float type_and_dir_to_texture[] = float[]
   5, 5, 5, 5, 5, 5,  // 05: snow
   6, 6, 6, 6, 6, 6,  // 06: flower1
   7, 7, 7, 7, 7, 7,  // 07: flower2
-  26, 26, 26, 26, 26, 26  // 08: water
+  9, 9, 9, 9, 8, 8,  // 08: tree logs
+  10, 10, 10, 10, 10, 10,  // 09: tree leaves
+  29, 29, 29, 29, 29, 29  // 10: water
 );
 
 

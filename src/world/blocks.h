@@ -2,34 +2,19 @@
 #define BLOCKS_H
 
 enum BlockType {
-    /* 00 */ GRASS,
-    /* 01 */ DIRT,
-    /* 02 */ SAND,
-    /* 03 */ STONE,
-    /* 04 */ SNOW,
-    /* 05 */ FLOWER1,
-    /* 06 */ FLOWER2,
-    /* 07 */ DESERT_BUSH,
-    /* 08 */ GRASS_BUSH,
-    /* 09 */ WATER_SURFACE,
-    /* 10 */ WATER,
-    /* 11 */ LAVA_SURFACE,
-    /* 12 */ LAVA,
-    /* 13 */ EMPTY,
+    AIR = 0,
+    GRASS = 1,
+    DIRT = 2,
+    SAND = 3,
+    STONE = 4,
+    SNOW = 5,
+    FLOWER1 = 6,
+    FLOWER2 = 7,
+    WATER = 8,
 };
 
-class Block {
-    public:
-     BlockType type;
-     Block() : type(EMPTY) {}
-     Block(BlockType type) : type(type) {}
-     void set_active(bool b) {
-       if (b)
-         type = GRASS;
-       else
-         type = EMPTY;
-     }
-     bool is_active() { return type != EMPTY; }
-   };
+struct Block {
+    BlockType type = AIR;
+};
 
 #endif

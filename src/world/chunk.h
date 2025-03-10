@@ -16,9 +16,7 @@
 #include <thread>
 #include <future>
 
-enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP };
-#define FIRST_DIRECTION BACKWARD
-#define LAST_DIRECTION UP
+enum Direction { BACKWARD, FORWARD, LEFT, RIGHT, DOWN, UP, DIRECTION_COUNT };
 glm::ivec3 dir[]{
     glm::ivec3(0, 0, 1), glm::ivec3(0, 0, -1), glm::ivec3(-1, 0, 0),
     glm::ivec3(1, 0, 0), glm::ivec3(0, -1, 0), glm::ivec3(0, 1, 0),
@@ -70,29 +68,6 @@ class Chunk {
         return true;
       default:
         assert(false);
-    }
-  }
-
-  void set_random() {
-    active_count = 0;
-    for (int i = 0; i < nb_blocks; i++) {
-      if (std::rand() % 2) {
-        blocks[i].set_active(true);
-        active_count++;
-      } else {
-        blocks[i].set_active(false);
-      }
-    }
-  }
-
-  void set_floor() {
-    active_count = 0;
-    if (origin.y != 0) return;
-    for (int x = 0; x < CHUNKS_SIZE; x++) {
-      for (int z = 0; z < CHUNKS_SIZE; z++) {
-        blocks[ivec3_to_index(glm::ivec3(x, 0, z))].set_active(true);
-        active_count++;
-      }
     }
   }
 
@@ -149,7 +124,7 @@ class Chunk {
 
   void create_faces(unordered_map<glm::ivec3, Chunk>& chunks) {
     if (active_count == 0) return;
-    for (int d = FIRST_DIRECTION; d < LAST_DIRECTION + 1; d++) {
+    for (int d = (Direction)0; d < DIRECTION_COUNT; d++) {
       mesh[d].faces_count = 0;
       mesh[d].buffer.clear();
       for (int x = 0; x < CHUNKS_SIZE; x++) {
@@ -157,12 +132,12 @@ class Chunk {
           for (int z = 0; z < CHUNKS_SIZE; z++) {
             glm::ivec3 p(x, y, z);
             Block block = (*this)[p];
-            if (block.is_active()) {
+            if (block.type != AIR) {
               glm::ivec3 neigh = p + dir[d];
               
               // Handle block within the same chunk
               if (in_range(neigh)) {
-                if ((*this)[neigh].is_active()) continue;
+                if ((*this)[neigh].type != AIR) continue;
               }
               // Handle block in a neighboring chunk
               else {
@@ -171,7 +146,7 @@ class Chunk {
                 auto neighbor_block = get_world_block(world_pos, chunks);
                 
                 // Skip face creation if there's a block in the neighboring chunk
-                if (neighbor_block.has_value() && neighbor_block.value().is_active()) {
+                if (neighbor_block.has_value() && neighbor_block.value().type != AIR) {
                   continue;
                 }
                 

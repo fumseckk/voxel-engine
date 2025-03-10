@@ -68,8 +68,7 @@ class World {
           chunks.emplace(std::piecewise_construct,
                          std::forward_as_tuple(chunk_coords),
                          std::forward_as_tuple(chunk_coords, &shader));
-          generator.fill_with_terrain(chunks[chunk_coords].blocks, chunk_coords * glm::ivec3(CHUNKS_SIZE, 0, CHUNKS_SIZE),
-                                      chunks[chunk_coords].active_count);
+
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
         } else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end()) {
           loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
@@ -95,6 +94,8 @@ class World {
         chunk->meshing = true;
         active_threads.emplace_back(
             make_pair(chunk, std::async(std::launch::async, [chunk, this]() {
+                        generator.fill_with_terrain(
+                            chunk->blocks, chunk->origin, chunk->active_count);
                         chunk->prepare_mesh_data(this->chunks);
                       })));
       }

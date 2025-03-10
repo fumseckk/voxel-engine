@@ -64,13 +64,15 @@ const vec2 uv_order[] = vec2[]
 
 const float type_and_dir_to_texture[] = float[]
 (
-  1, 1, 1, 1, 2, 0, // 00: grass
-  2, 2, 2, 2, 2, 2, // 01 : dirt
-  3, 3, 3, 3, 3, 3, // 02 : sand
-  4, 4, 4, 4, 4, 4,  // 03 : stone
-  5, 5, 5, 5, 5, 5,  // 04: snow
-  6, 6, 6, 6, 6, 6,  // 05 flower1
-  7, 7, 7, 7, 7, 7   // 06 flower2
+  -1, -1, -1, -1, -1, -1, // 00: empty
+  1, 1, 1, 1, 2, 0, // 01: grass
+  2, 2, 2, 2, 2, 2, // 02: dirt
+  3, 3, 3, 3, 3, 3, // 03: sand
+  4, 4, 4, 4, 4, 4,  // 04: stone
+  5, 5, 5, 5, 5, 5,  // 05: snow
+  6, 6, 6, 6, 6, 6,  // 06: flower1
+  7, 7, 7, 7, 7, 7,  // 07: flower2
+  26, 26, 26, 26, 26, 26  // 08: water
 );
 
 
@@ -93,10 +95,10 @@ void main() {
   vsTex = uv_order[index];
   vsNormal = normals[dir];
   
-  if (type < 50) { // solid blocks
+  if (type < 60) { // solid blocks
     vsType = type_and_dir_to_texture[type*6 + dir];
   }
   else if (type < 70) { // liquid
-
+    vsType = type_and_dir_to_texture[(type - 50 + 7)*6 + dir]; // Water starts at index 7
   }
 }

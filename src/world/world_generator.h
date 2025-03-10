@@ -116,9 +116,9 @@ class WorldGenerator {
     float mappedValue = (noiseValue + 1.0f) * 0.5f;
     
     // Adjusted biome distribution
-    if (mappedValue < 0.30f) return PLAINS;      // 30% chance
-    if (mappedValue < 0.60f) return FOREST;      // 30% chance
-    if (mappedValue < 0.70f) return DESERT;      // 10% chance
+    if (mappedValue < 0.10f) return DESERT;      // 10% chance
+    if (mappedValue < 0.40f) return PLAINS;      // 30% chance
+    if (mappedValue < 0.70f) return FOREST;      // 30% chance
     if (mappedValue < 0.85f) return MOUNTAINS;   // 15% chance
     return TUNDRA;                               // 15% chance
   }

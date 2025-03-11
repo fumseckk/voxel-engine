@@ -5,10 +5,6 @@
 #include "world/world.h"
 #include <cassert>
 
-// TODO Create cube textures
-// TODO make interesting noise, add water, etc
-// TODO add trees ?
-
 int main(int argc, char **argv)
 {
   Window window;

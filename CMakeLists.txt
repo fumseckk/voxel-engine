@@ -53,6 +53,7 @@ endif()
 
 add_executable(game
     src/gfx/utils.cpp
+    src/gfx/window.cpp
     src/gfx/vbo.cpp
     src/gfx/vao.cpp
     src/gfx/ssbo.cpp

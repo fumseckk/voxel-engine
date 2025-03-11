@@ -1,4 +1,5 @@
 #include "chunk.h"
+#include "world_generator.h"
 
 using namespace glm;
 
@@ -71,7 +72,7 @@ std::optional<Block> Chunk::get_world_block(ivec3 world_pos, unordered_map<ivec3
   return chunks[chunk_coords][local_pos];
 }
 
-void Chunk::create_faces(unordered_map<ivec3, Chunk> &chunks)
+void Chunk::prepare_mesh_data(WorldGenerator& generator, unordered_map<ivec3, Chunk> &chunks)
 {
   if (active_count == 0)
     return;
@@ -91,29 +92,27 @@ void Chunk::create_faces(unordered_map<ivec3, Chunk> &chunks)
           {
             ivec3 neigh = p + dir[d];
 
-            // Handle block within the same chunk
             if (in_range(neigh))
             {
               if ((*this)[neigh].type != AIR && (*this)[neigh].type != LEAVES)
                 continue;
             }
-            // Handle block in a neighboring chunk
             else
             {
+              // This improves performance by 30%, but not reliable
+              if (generator.get_height(neigh.x, neigh.z, origin) > y) continue;
+              
               // Convert local position to world position
-              ivec3 world_pos = origin + neigh;
-              auto neighbor_block = get_world_block(world_pos, chunks);
+              // ivec3 world_pos = origin + neigh;
+              // auto neighbor_block = get_world_block(world_pos, chunks);
 
-              // Skip face creation if there's a block in the neighboring chunk
-              if (neighbor_block.has_value() &&
-                  neighbor_block.value().type != AIR &&
-                  neighbor_block.value().type != LEAVES)
-              {
-                continue;
-              }
+              // // Skip face creation if there's a block in the neighboring chunk
+              // if (neighbor_block.has_value() &&
+              //     neighbor_block.value().type != AIR &&
+              //     neighbor_block.value().type != LEAVES)
+              //   continue;
 
-              // Special case for bottom blocks (don't render bottom face at
-              // y=0)
+              // Don't render bottom face at y=0
               if (y == 0 && d == (int)DOWN)
                 continue;
             }
@@ -132,11 +131,6 @@ void Chunk::set_face_at_coords(vec3 coords, Direction dir, BlockType type)
   // TODO enlever la direction d'ici et en faire un autre ssbo chunk-wise
   mesh[dir].buffer.push_back(
       ivec4(coords.x, coords.y, coords.z, dir | type << 4));
-}
-
-void Chunk::prepare_mesh_data(unordered_map<ivec3, Chunk> &chunks)
-{
-  create_faces(chunks);
 }
 
 void Chunk::upload_to_gpu()

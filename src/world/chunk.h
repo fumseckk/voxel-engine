@@ -7,6 +7,7 @@
 
 #include "../params.h"
 #include "blocks.h"
+#include "world_generator.h"
 
 #include <vector>
 #include <optional>
@@ -65,9 +66,8 @@ public:
   bool chunk_exists(glm::ivec3 chunk_coords, unordered_map<glm::ivec3, Chunk> &chunks);
   // Get a block from world coordinates, even if it's in another chunk
   std::optional<Block> get_world_block(glm::ivec3 world_pos, unordered_map<glm::ivec3, Chunk> &chunks);
-  void create_faces(unordered_map<glm::ivec3, Chunk> &chunks);
+  void prepare_mesh_data(WorldGenerator& generator, unordered_map<glm::ivec3, Chunk> &chunks);
   void set_face_at_coords(glm::vec3 coords, Direction dir, BlockType type);
-  void prepare_mesh_data(unordered_map<glm::ivec3, Chunk> &chunks);
   void upload_to_gpu();
   void render(Camera &camera);
 

@@ -148,17 +148,10 @@ float WorldGenerator::get_biome_height_modifier(BiomeType biome, float baseHeigh
 
 int WorldGenerator::get_height(int x, int z, glm::ivec3 origin)
 {
-  // Get base height
-  float baseHeight =
-      heightNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) /
-          2.0f +
-      0.5f;
-  baseHeight +=
-      (detailNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) /
-           2.0f +
-       0.5f) *
-      0.01f;
-  // Biome influences to create smooth transitions
+  float baseHeight = heightNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0f + 0.5f;
+  float detailHeight = detailNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0f + 0.5f;
+  baseHeight += detailHeight * 0.01f;
+
   std::vector<BiomeInfluence> biomeInfluences =
       get_biome_influences(x, z, origin);
 

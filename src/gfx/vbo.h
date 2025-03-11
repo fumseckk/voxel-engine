@@ -2,7 +2,7 @@
 #define VBO_H
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <cstddef>
 
 class VBO
 {
@@ -10,28 +10,13 @@ public:
   GLint type;
   bool dynamic;
   GLuint id;
-  VBO(GLint type, bool dynamic)
-  {
-    this->type = type;
-    this->dynamic = dynamic;
-    glGenBuffers(1, &id);
-  }
+  VBO(GLint type, bool dynamic);
 
-  ~VBO()
-  {
-    glDeleteBuffers(1, &id);
-  }
+  ~VBO();
 
-  void bind() const
-  {
-    glBindBuffer(type, id);
-  }
+  void bind() const;
 
-  void buffer(void *data, size_t count) const
-  {
-    this->bind();
-    glBufferData(type, count, data, dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-  }
+  void buffer(void *data, size_t count) const;
 };
 
 #endif

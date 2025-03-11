@@ -3,6 +3,9 @@
 
 #include "chunk.h"
 #include "world_generator.h"
+#include <algorithm>
+
+using namespace glm;
 
 class World
 {
@@ -10,8 +13,8 @@ public:
   const int render_distance = RENDER_DISTANCE;
   const int chunks_size = CHUNKS_SIZE;
   FastNoiseLite noise;
-  unordered_map<glm::ivec3, Chunk> chunks;
-  unordered_map<glm::ivec3, Chunk *> loaded_chunks;
+  unordered_map<ivec3, Chunk> chunks;
+  unordered_map<ivec3, Chunk *> loaded_chunks;
   vector<pair<Chunk *, std::future<void>>> active_threads;
   Shader shader = Shader("resources/shaders/default.vert",
                          "resources/shaders/default.frag");
@@ -27,24 +30,24 @@ public:
   void prepare(Camera &camera)
   {
     shader.use();
-    glm::mat4 p = camera.get_perspective_matrix();
+    mat4 p = camera.get_perspective_matrix();
     shader.uniform_mat4("p", p);
   }
 
-  glm::ivec3 retrieve_chunk_coords(glm::ivec3 p)
+  ivec3 retrieve_chunk_coords(ivec3 p)
   {
     // division rounded down for consistency in the negatives
-    return glm::floor((glm::vec3)p / glm::vec3(chunks_size));
+    return floor((vec3)p / vec3(chunks_size));
   }
-  Chunk retrieve_chunk(glm::ivec3 p)
+  Chunk retrieve_chunk(ivec3 p)
   {
     return chunks[retrieve_chunk_coords(p)];
   }
 
-  Block operator[](glm::ivec3 p)
+  Block operator[](ivec3 p)
   {
     Chunk chunk = retrieve_chunk(p);
-    return chunk[p & glm::ivec3(chunks_size - 1)];
+    return chunk[p & ivec3(chunks_size - 1)];
   }
 
   template <typename T>
@@ -53,12 +56,12 @@ public:
     return t.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
   }
 
-  void unload_far_chunks(glm::ivec3 &player_chunk_coords)
+  void unload_far_chunks(ivec3 &player_chunk_coords)
   {
     for (auto it = loaded_chunks.cbegin(); it != loaded_chunks.cend();)
     {
       Chunk *chunk = it->second;
-      glm::ivec3 orig = chunk->origin - player_chunk_coords;
+      ivec3 orig = chunk->origin - player_chunk_coords;
       if (orig.x * orig.x + orig.y * orig.y + orig.z * orig.z >
           render_distance * render_distance)
         loaded_chunks.erase(it++);
@@ -67,29 +70,30 @@ public:
     }
   }
 
-  void load_close_chunks(glm::ivec3 &player_chunk_coords)
+  void load_close_chunks(ivec3 &player_chunk_coords)
   {
+    // Generate list of close chunks
+    vector<ivec3> close_coords;
     for (int x = -render_distance; x < render_distance; x++)
-    {
       for (int z = -render_distance; z < render_distance; z++)
-      {
-        if (x * x + z * z > render_distance * render_distance)
-          continue;
-        glm::ivec3 chunk_coords =
-            glm::vec3(player_chunk_coords.x + x, 0, player_chunk_coords.z + z);
-        if (chunks.find(chunk_coords) == chunks.end())
-        {
-          chunks.emplace(std::piecewise_construct,
-                         std::forward_as_tuple(chunk_coords),
-                         std::forward_as_tuple(chunk_coords, &shader));
+        if (x * x + z * z < render_distance * render_distance)
+          close_coords.push_back(ivec3(x, 0, z));
+    std::sort(close_coords.begin(), close_coords.end(), [&](vec3 a, vec3 b)
+              { return distance(a, vec3(player_chunk_coords)) > distance(b, vec3(player_chunk_coords)); });
 
-          loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
-        }
-        else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end())
-        {
-          loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
-        }
+    for (auto chunk_coords : close_coords)
+    {
+      chunk_coords = vec3(player_chunk_coords.x + chunk_coords.x, 0, player_chunk_coords.z + chunk_coords.z);
+      if (chunks.find(chunk_coords) == chunks.end())
+      {
+        chunks.emplace(std::piecewise_construct,
+                       std::forward_as_tuple(chunk_coords),
+                       std::forward_as_tuple(chunk_coords, &shader));
+
+        loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
       }
+      else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end())
+        loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
     }
   }
 
@@ -97,7 +101,7 @@ public:
   {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.63f, 0.86f, 1.0f, 1.0f);
-    glm::mat4 v = camera.get_view_matrix();
+    mat4 v = camera.get_view_matrix();
 
     shader.use();
     shader.uniform_mat4("v", v);
@@ -115,9 +119,8 @@ public:
         active_threads.emplace_back(
             make_pair(chunk, std::async(std::launch::async, [chunk, this]()
                                         {
-                        generator.fill_with_terrain(
-                            chunk->blocks, chunk->origin, chunk->active_count);
-                        chunk->prepare_mesh_data(this->chunks); })));
+                        generator.fill_with_terrain(chunk->blocks, chunk->origin, chunk->active_count);
+                        chunk->prepare_mesh_data(generator, this->chunks); })));
       }
     }
   }
@@ -154,8 +157,8 @@ public:
 
   void render(Camera &camera)
   {
-    glm::ivec3 player_coords = glm::ivec3(camera.position);
-    glm::ivec3 player_chunk_coords = retrieve_chunk_coords(player_coords);
+    ivec3 player_coords = ivec3(camera.position);
+    ivec3 player_chunk_coords = retrieve_chunk_coords(player_coords);
 
     unload_far_chunks(player_chunk_coords);
     load_close_chunks(player_chunk_coords);

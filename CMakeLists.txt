@@ -53,6 +53,9 @@ endif()
 
 add_executable(game
     src/gfx/utils.cpp
+    src/gfx/vbo.cpp
+    src/gfx/vao.cpp
+    src/gfx/ssbo.cpp
     src/gfx/texture.cpp
     src/world/world_generator.cpp
     src/world/chunk.cpp

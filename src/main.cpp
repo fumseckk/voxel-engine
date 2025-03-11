@@ -17,7 +17,6 @@ int main(int argc, char **argv)
 
   world.shader.use();
   world.prepare(camera);
-  assert(!glfwWindowShouldClose(window));
   while (!glfwWindowShouldClose(window))
   {
     window.begin_frame();

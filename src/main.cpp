@@ -3,31 +3,32 @@
 #include "gfx/gfx.h"
 #include "ui/ui.h"
 #include "world/world.h"
+#include <cassert>
 
 // TODO Create cube textures
 // TODO make interesting noise, add water, etc
 // TODO add trees ?
 
-int main(int argc, char** argv) {
-  std::srand(std::time({}));
+int main(int argc, char **argv)
+{
+  Window window;
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_CULL_FACE);
 
-  // Camera camera = Camera(glm::vec3(0.0f, 3.0f, 0.0f));
-  Camera camera = Camera(glm::vec3(0.0f, (float)(WORLD_HEIGHT), 3.0f));
+  Camera camera = Camera(window, glm::vec3(0.0f, (float)(WORLD_HEIGHT), 3.0f));
 
   World world;
 
   world.shader.use();
   world.prepare(camera);
-
-  while (!glfwWindowShouldClose(window)) {
+  assert(!glfwWindowShouldClose(window));
+  while (!glfwWindowShouldClose(window))
+  {
     window.begin_frame();
     camera.move();
     world.render(camera);
     window.end_frame();
     glCheckError();
-
   }
 
   // Terminate

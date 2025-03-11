@@ -1,7 +1,8 @@
 #ifndef BLOCKS_H
 #define BLOCKS_H
 
-enum BlockType {
+enum BlockType
+{
     AIR = 0,
     GRASS = 1,
     DIRT = 2,
@@ -15,7 +16,8 @@ enum BlockType {
     WATER = 10,
 };
 
-struct Block {
+struct Block
+{
     BlockType type = AIR;
 };
 

@@ -7,10 +7,10 @@
 
 #include "window.h"
 
-extern Window window;
-
-class Camera {
- public:
+class Camera
+{
+public:
+  Window &window;
   glm::vec3 world_up;
   glm::vec3 front, up, right;
   glm::vec3 position;
@@ -21,8 +21,9 @@ class Camera {
   float mvt_speed;
   float mouse_sensitivity;
 
-  Camera(glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f), float yaw = -90.0f,
-         float pitch = 0.0f) {
+  Camera(Window &window, glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f), float yaw = -90.0f, float pitch = 0.0f)
+      : window(window)
+  {
     this->world_up = glm::vec3(0.0f, 1.0f, 0.0f);
     this->position = pos;
     this->yaw = yaw;
@@ -36,26 +37,35 @@ class Camera {
     update_camera_vectors();
   }
 
-  glm::mat4 get_view_matrix() {
+  glm::mat4 get_view_matrix()
+  {
     return glm::lookAt(position, position + front, up);
   }
 
-  glm::mat4 get_perspective_matrix() {
+  glm::mat4 get_perspective_matrix()
+  {
     return glm::perspective(fov, aspect_ratio, znear, zfar);
   }
 
-  void keyboard_move() {
+  void keyboard_move()
+  {
     float vel = mvt_speed * window.frame_delta;
-    if (window.keyboard.keys[GLFW_KEY_W].down) position += glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * vel;
-    if (window.keyboard.keys[GLFW_KEY_A].down) position -= glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * vel;
-    if (window.keyboard.keys[GLFW_KEY_S].down) position -= glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * vel;
-    if (window.keyboard.keys[GLFW_KEY_D].down) position += glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * vel;
-    if (window.keyboard.keys[GLFW_KEY_SPACE].down) position += world_up * vel;
+    if (window.keyboard.keys[GLFW_KEY_W].down)
+      position += glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_A].down)
+      position -= glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_S].down)
+      position -= glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_D].down)
+      position += glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * vel;
+    if (window.keyboard.keys[GLFW_KEY_SPACE].down)
+      position += world_up * vel;
     if (window.keyboard.keys[GLFW_KEY_LEFT_CONTROL].down)
       position -= world_up * vel;
   }
 
-  void mouse_move() {
+  void mouse_move()
+  {
     glm::vec2 delta = window.mouse.delta_position;
     delta *= mouse_sensitivity;
     yaw -= delta.x;
@@ -65,13 +75,15 @@ class Camera {
     update_camera_vectors();
   }
 
-  void move() {
+  void move()
+  {
     keyboard_move();
     mouse_move();
   }
 
- private:
-  void update_camera_vectors() {
+private:
+  void update_camera_vectors()
+  {
     // reset front vector from yaw and pitch
     front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
     front.y = sin(glm::radians(pitch));

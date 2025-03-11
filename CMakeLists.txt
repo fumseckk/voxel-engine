@@ -52,7 +52,11 @@ if(NOT glm_POPULATED)
 endif()
 
 add_executable(game
-	src/main.cpp
+    src/gfx/utils.cpp
+    src/gfx/texture.cpp
+    src/world/world_generator.cpp
+    src/world/chunk.cpp
+    src/main.cpp
 	)
 
 target_link_libraries(game glfw glad glm)

@@ -61,6 +61,7 @@ add_executable(game
     src/gfx/ssbo.cpp
     src/gfx/texture.cpp
     src/world/world_generator.cpp
+    src/world/world.cpp
     src/world/chunk.cpp
     src/main.cpp
 	)

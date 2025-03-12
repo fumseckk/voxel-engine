@@ -44,10 +44,10 @@ void Window::_window_init(const string &name)
 
   // Set up callbacks
   glfwSetWindowUserPointer(window, this);
-  glfwSetFramebufferSizeCallback(window, _size_callback);
-  glfwSetCursorPosCallback(window, _cursor_callback);
-  glfwSetMouseButtonCallback(window, _mouse_callback);
-  glfwSetKeyCallback(window, _key_callback);
+  glfwSetFramebufferSizeCallback(window, size_callback);
+  glfwSetCursorPosCallback(window, cursor_callback);
+  glfwSetMouseButtonCallback(window, mouse_callback);
+  glfwSetKeyCallback(window, key_callback);
 }
 
 Window::Window(const string name)
@@ -89,48 +89,52 @@ void Window::end_frame()
 
 Window::operator GLFWwindow *() { return window; }
 
-void Window::size_callback(int width, int height)
+void Window::size_callback(GLFWwindow* window, int width, int height)
 {
+  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
   glViewport(0, 0, width, height);
-  this->width = width;
-  this->height = height;
+  this_->width = width;
+  this_->height = height;
 }
 
-void Window::cursor_callback(int xpos, int ypos)
+void Window::cursor_callback(GLFWwindow* window, double xpos, double ypos)
 {
+  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
   glm::vec2 pos(xpos, ypos);
-  mouse.delta_position = glm::clamp(mouse.position - pos, -100.0f, 100.0f);
-  mouse.position = pos;
+  this_->mouse.delta_position = glm::clamp(this_->mouse.position - pos, -100.0f, 100.0f);
+  this_->mouse.position = pos;
 }
 
-void Window::mouse_callback(int button, int action, int mods)
+void Window::mouse_callback(GLFWwindow* window, int button, int action, int mods)
 {
+  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
   if (button < 0)
     return;
   switch (action)
   {
   case GLFW_PRESS:
-    keyboard.keys[button].down = true;
+    this_->keyboard.keys[button].down = true;
     break;
   case GLFW_RELEASE:
-    keyboard.keys[button].down = false;
+    this_->keyboard.keys[button].down = false;
     break;
   default:
     break;
   }
 }
 
-void Window::key_callback(int key, int scancode, int action, int mods)
+void Window::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
   if (key < 0)
     return;
   switch (action)
   {
   case GLFW_PRESS:
-    keyboard.keys[key].down = true;
+    this_->keyboard.keys[key].down = true;
     break;
   case GLFW_RELEASE:
-    keyboard.keys[key].down = false;
+    this_->keyboard.keys[key].down = false;
     break;
   default:
     break;
@@ -160,26 +164,4 @@ void Window::update_buttons()
     else
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
   }
-}
-
-// Call wrapper functions for the window object.
-void Window::_size_callback(GLFWwindow *window, int width, int height)
-{
-  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
-  this_->size_callback(width, height);
-}
-void Window::_cursor_callback(GLFWwindow *window, double pos_x, double pos_y)
-{
-  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
-  this_->cursor_callback(pos_x, pos_y);
-}
-void Window::_mouse_callback(GLFWwindow *window, int button, int action, int mods)
-{
-  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
-  this_->mouse_callback(button, action, mods);
-}
-void Window::_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
-{
-  Window *this_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
-  this_->key_callback(key, scancode, action, mods);
 }

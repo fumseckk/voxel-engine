@@ -11,7 +11,9 @@ using namespace std;
 
 struct Button
 {
-  bool pressed, down, down_before;
+  bool pressed: 1;
+  bool down: 1;
+  bool down_before: 1;
 };
 
 struct Mouse
@@ -47,18 +49,12 @@ public:
   Window(const int width = 1980, const int height = 1080, const string name = "OpenGLProgram");
   void begin_frame();
   void end_frame();
-  operator GLFWwindow *();
-  void size_callback(int width, int height);
-  void cursor_callback(int xpos, int ypos);
-  void mouse_callback(int button, int action, int mods);
-  void key_callback(int key, int scancode, int action, int mods);
   void update_buttons();
-
-  // Call wrapper functions for the window object.
-  static void _size_callback(GLFWwindow *window, int width, int height);
-  static void _cursor_callback(GLFWwindow *window, double pos_x, double pos_y);
-  static void _mouse_callback(GLFWwindow *window, int button, int action, int mods);
-  static void _key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+  operator GLFWwindow *();
+  static void size_callback(GLFWwindow* window, int width, int height);
+  static void cursor_callback(GLFWwindow* window, double xpos, double ypos);
+  static void mouse_callback(GLFWwindow* window, int button, int action, int mods);
+  static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 };
 
 #endif

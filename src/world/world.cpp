@@ -5,98 +5,101 @@
 
 using namespace glm;
 
-World::World() : generator()
-{
-  noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-  noise.SetFractalWeightedStrength(2.0f);
-}
+World::World() : generator() {}
 World::~World() {}
 
-void World::prepare(Camera &camera)
+void World::prepare(const Camera &camera)
 {
   shader.use();
-  mat4 p = camera.get_perspective_matrix();
-  shader.uniform_mat4("p", p);
 }
 
-ivec3 World::retrieve_chunk_coords(ivec3 p)
+ivec3 World::retrieve_chunk_coords(const ivec3 &p)
 {
   // division rounded down for consistency in the negatives
   return floor((vec3)p / vec3(chunks_size));
 }
-Chunk World::retrieve_chunk(ivec3 p)
+Chunk World::retrieve_chunk(const ivec3 &p)
 {
   return chunks[retrieve_chunk_coords(p)];
 }
 
-Block World::operator[](ivec3 p)
+Block World::operator[](const ivec3 &p)
 {
   Chunk chunk = retrieve_chunk(p);
   return chunk[p & ivec3(chunks_size - 1)];
 }
 
 template <typename T>
-bool World::thread_is_done(std::future<T> &t)
+bool World::thread_is_done(const std::future<T> &t)
 {
   return t.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
 }
 
-void World::unload_far_chunks(ivec3 &player_chunk_coords)
+bool World::inside_frustum(const Frustum &frustum, const ivec3 &chunk_coords)
 {
-  for (auto it = loaded_chunks.cbegin(); it != loaded_chunks.cend();)
+  // Convert to world coordinates
+  vec3 min = vec3(chunk_coords * CHUNKS_SIZE);
+  vec3 max = min + vec3(CHUNKS_SIZE, WORLD_HEIGHT, CHUNKS_SIZE);
+
+  // Test AABB against all frustum planes
+  for (int i = 0; i < 6; i++)
   {
-    Chunk *chunk = it->second;
-    ivec3 orig = chunk->origin - player_chunk_coords;
-    if (orig.x * orig.x + orig.y * orig.y + orig.z * orig.z >
-        render_distance * render_distance)
-      loaded_chunks.erase(it++);
-    else
-      it++;
+    const vec4 &plane = frustum.planes[i];
+
+    // Find the positive corner (farthest in normal direction)
+    vec3 p(
+        plane.x > 0 ? max.x : min.x,
+        plane.y > 0 ? max.y : min.y,
+        plane.z > 0 ? max.z : min.z);
+
+    // If positive corner is outside, whole AABB is outside
+    if (dot(vec3(plane), p) + plane.w < 0)
+      return false;
   }
+
+  return true;
 }
 
-void World::load_close_chunks(ivec3 &player_chunk_coords)
+void World::load_close_chunks(const Frustum& frustum, const ivec3 &player_chunk_coords)
 {
-  // Generate list of close chunks
-  vector<ivec3> close_coords;
+  visible_chunks.clear();
+
   for (int x = -render_distance; x < render_distance; x++)
     for (int z = -render_distance; z < render_distance; z++)
-      if (x * x + z * z < render_distance * render_distance)
-        close_coords.push_back(ivec3(x, 0, z));
-  std::sort(close_coords.begin(), close_coords.end(), [&](vec3 a, vec3 b)
-            { return distance(a, vec3(player_chunk_coords)) > distance(b, vec3(player_chunk_coords)); });
+    {
+      float dist_sq = x * x + z * z;
+      ivec3 coords = ivec3(x, 0, z) + player_chunk_coords;
+      if (dist_sq >= render_distance * render_distance) continue;
+      if (coords != player_chunk_coords && !inside_frustum(frustum, coords)) continue;
+      visible_chunks.emplace_back(coords, dist_sq);
+    }
 
-  for (auto chunk_coords : close_coords)
+  std::sort(visible_chunks.begin(), visible_chunks.end(),
+            [&](const auto &a, const auto &b)
+            { return a.second < b.second; });
+
+  for (const auto &[chunk_coords, dist_sq] : visible_chunks)
   {
-    chunk_coords = vec3(player_chunk_coords.x + chunk_coords.x, 0, player_chunk_coords.z + chunk_coords.z);
     if (chunks.find(chunk_coords) == chunks.end())
     {
       chunks.emplace(std::piecewise_construct,
                      std::forward_as_tuple(chunk_coords),
                      std::forward_as_tuple(chunk_coords, &shader));
-
-      loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
     }
-    else if (loaded_chunks.find(chunk_coords) == loaded_chunks.end())
-      loaded_chunks.emplace(chunk_coords, &chunks[chunk_coords]);
   }
 }
 
-void World::set_view_clear(Camera &camera)
+void World::set_view_clear()
 {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glClearColor(0.63f, 0.86f, 1.0f, 1.0f);
-  mat4 v = camera.get_view_matrix();
-
-  shader.use();
-  shader.uniform_mat4("v", v);
-  shader.uniform_vec3("viewPos", camera.position);
 }
 
 void World::add_chunks_to_render_queue()
 {
-  for (auto &[coords, chunk] : loaded_chunks)
+  for (auto &[coords, _] : visible_chunks)
   {
+    Chunk* chunk = &chunks[coords];
     if (chunk->dirty && !chunk->meshing &&
         active_threads.size() < MAX_ACTIVE_THREADS)
     {
@@ -123,32 +126,39 @@ void World::cleanup_meshed_chunks()
       it = active_threads.erase(it);
     }
     else
-    {
       ++it;
+  }
+}
+
+void World::render_chunks(const Frustum &frustum, const ivec3 &player_chunk_coords, const Camera &camera)
+{
+  for (auto &[coords, _] : visible_chunks)
+  {
+    Chunk& chunk = chunks[coords];
+    if (!chunk.dirty)
+    {
+      shader.uniform_vec3("chunkOrigin", chunk.origin);
+      chunk.render(camera);
     }
   }
 }
 
-void World::render_chunks(Camera &camera)
-{
-  for (auto &[coords, chunk] : loaded_chunks)
-  {
-    if (chunk->dirty)
-      continue;
-    shader.uniform_vec3("chunkOrigin", chunk->origin);
-    chunk->render(camera);
-  }
-}
-
-void World::render(Camera &camera)
+void World::render(const Camera &camera)
 {
   ivec3 player_coords = ivec3(camera.position);
   ivec3 player_chunk_coords = retrieve_chunk_coords(player_coords);
 
-  unload_far_chunks(player_chunk_coords);
-  load_close_chunks(player_chunk_coords);
-  set_view_clear(camera);
+  mat4 v = camera.get_view_matrix();
+  mat4 p = camera.get_perspective_matrix();
+  mat4 pv = p * v;
+  shader.use();
+  shader.uniform_mat4("m_PerspectiveView", pv);
+  shader.uniform_vec3("viewPos", camera.position);
+  Frustum frustum(pv);
+  load_close_chunks(frustum, player_chunk_coords);
+  set_view_clear();
   add_chunks_to_render_queue();
   cleanup_meshed_chunks();
-  render_chunks(camera);
+  render_chunks(frustum, player_chunk_coords, camera);
+  // TODO every minutes, remove from memory very far chunks (burn to memory any change made to them).
 }

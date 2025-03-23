@@ -21,12 +21,12 @@ Camera::Camera(Window &window, glm::vec3 pos, float yaw, float pitch)
   update_camera_vectors();
 }
 
-glm::mat4 Camera::get_view_matrix()
+glm::mat4 Camera::get_view_matrix() const
 {
   return glm::lookAt(position, position + front, up);
 }
 
-glm::mat4 Camera::get_perspective_matrix()
+glm::mat4 Camera::get_perspective_matrix() const
 {
   return glm::perspective(fov, aspect_ratio, znear, zfar);
 }

@@ -59,20 +59,20 @@ public:
   }
   ~Chunk() {};
 
-  Block operator[](glm::ivec3 p);
-  bool player_sees_face(Camera &camera, Direction dir);
-  glm::ivec3 retrieve_chunk_coords(glm::ivec3 p);
+  Block operator[](const glm::ivec3 &p);
+  bool player_sees_face(const Camera &camera, const Direction &dir);
+  glm::ivec3 retrieve_chunk_coords(const glm::ivec3 &p);
   // Check if a neighboring chunk exists
-  bool chunk_exists(glm::ivec3 chunk_coords, unordered_map<glm::ivec3, Chunk> &chunks);
+  bool chunk_exists(const glm::ivec3 &chunk_coords, const unordered_map<glm::ivec3, Chunk> &chunks);
   // Get a block from world coordinates, even if it's in another chunk
-  std::optional<Block> get_world_block(glm::ivec3 world_pos, unordered_map<glm::ivec3, Chunk> &chunks);
-  void prepare_mesh_data(WorldGenerator& generator, unordered_map<glm::ivec3, Chunk> &chunks);
-  void set_face_at_coords(glm::vec3 coords, Direction dir, BlockType type);
+  std::optional<Block> get_world_block(const glm::ivec3 &world_pos, unordered_map<glm::ivec3, Chunk> &chunks);
+  void prepare_mesh_data(const WorldGenerator &generator, const unordered_map<glm::ivec3, Chunk> &chunks);
+  void set_face_at_coords(const glm::vec3& coords, const Direction& dir, const BlockType& type);
   void upload_to_gpu();
-  void render(Camera &camera);
+  void render(const Camera &camera);
 
 private:
-  static glm::ivec3 index_to_ivec3(int index)
+  static glm::ivec3 index_to_ivec3(const int index)
   {
     int x = index % CHUNKS_SIZE;
     int a = (index - x) / CHUNKS_SIZE;
@@ -81,12 +81,12 @@ private:
     return glm::ivec3(x, y, z);
   }
 
-  static int ivec3_to_index(glm::ivec3 p)
+  static int ivec3_to_index(const glm::ivec3& p)
   {
     return p.z * CHUNKS_SIZE * WORLD_HEIGHT + p.y * CHUNKS_SIZE + p.x;
   }
 
-  static bool in_range(glm::ivec3 p)
+  static bool in_range(const glm::ivec3& p)
   {
     return p.x >= 0 && p.y >= 0 && p.z >= 0 && p.x < CHUNKS_SIZE &&
            p.y < WORLD_HEIGHT && p.z < CHUNKS_SIZE;

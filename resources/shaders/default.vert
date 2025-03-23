@@ -1,6 +1,6 @@
 #version 460 core
 
-uniform mat4 v, p;
+uniform mat4 m_PerspectiveView;
 uniform vec3 chunkOrigin;
 
 out vec2 vsTex;
@@ -92,7 +92,7 @@ void main() {
   position += vertex_positions[indices[index + 4*dir]];
 
   // set out variables
-  gl_Position = p * v * vec4(position, 1.0);
+  gl_Position = m_PerspectiveView * vec4(position, 1.0);
   vsFragPos = gl_Position.xyz;
   vsTex = uv_order[index];
   vsNormal = normals[dir];

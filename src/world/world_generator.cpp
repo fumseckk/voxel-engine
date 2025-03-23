@@ -30,7 +30,7 @@ WorldGenerator::WorldGenerator()
 }
 
 std::vector<BiomeInfluence> WorldGenerator::get_biome_influences(
-    int x, int z, glm::ivec3 origin)
+    int x, int z, const glm::ivec3 &origin) const
 {
   std::vector<BiomeInfluence> influences;
   const float BIOME_BLEND_RADIUS = 8.0f; // Blend radius in blocks
@@ -88,7 +88,7 @@ std::vector<BiomeInfluence> WorldGenerator::get_biome_influences(
   return influences;
 }
 
-BiomeType WorldGenerator::biome_from_noise(float noiseValue)
+BiomeType WorldGenerator::biome_from_noise(float noiseValue) const
 {
   float mappedValue = (noiseValue + 1.0f) * 0.5f;
   if (mappedValue < 0.10f)
@@ -102,14 +102,14 @@ BiomeType WorldGenerator::biome_from_noise(float noiseValue)
   return TUNDRA;      // 15% chance
 }
 
-BiomeType WorldGenerator::get_dominant_biome(int x, int z, glm::ivec3 origin)
+BiomeType WorldGenerator::get_dominant_biome(int x, int z, const glm::ivec3 &origin) const
 {
   float biomeValue =
       biomeNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z));
   return biome_from_noise(biomeValue);
 }
 
-float WorldGenerator::get_river_strength(int x, int z, glm::ivec3 origin)
+float WorldGenerator::get_river_strength(int x, int z, const glm::ivec3 &origin) const
 {
   BiomeType biome = get_dominant_biome(x, z, origin);
   if (biome == MOUNTAINS)
@@ -122,12 +122,12 @@ float WorldGenerator::get_river_strength(int x, int z, glm::ivec3 origin)
   return std::max(0.0f, riverStrength);
 }
 
-bool WorldGenerator::is_river(int x, int z, glm::ivec3 origin)
+bool WorldGenerator::is_river(int x, int z, const glm::ivec3 &origin) const
 {
   return get_river_strength(x, z, origin) > 0.0f;
 }
 
-float WorldGenerator::get_biome_height_modifier(BiomeType biome, float baseHeight)
+float WorldGenerator::get_biome_height_modifier(const BiomeType &biome, float baseHeight) const
 {
   switch (biome)
   {
@@ -146,7 +146,7 @@ float WorldGenerator::get_biome_height_modifier(BiomeType biome, float baseHeigh
   }
 }
 
-int WorldGenerator::get_height(int x, int z, glm::ivec3 origin)
+int WorldGenerator::get_height(int x, int z, const glm::ivec3 &origin) const
 {
   float baseHeight = heightNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0f + 0.5f;
   float detailHeight = detailNoise.GetNoise((float)(x + origin.x), (float)(z + origin.z)) / 2.0f + 0.5f;
@@ -181,7 +181,7 @@ int WorldGenerator::get_height(int x, int z, glm::ivec3 origin)
   return naturalTerrainHeight;
 }
 
-BlockType WorldGenerator::get_surface_block(BiomeType biome, bool is_river, int y)
+BlockType WorldGenerator::get_surface_block(const BiomeType &biome, bool is_river, int y) const
 {
   if (is_river)
   {
@@ -203,7 +203,7 @@ BlockType WorldGenerator::get_surface_block(BiomeType biome, bool is_river, int 
   }
 }
 
-BlockType WorldGenerator::get_subsurface_block(BiomeType biome, int depth, int y)
+BlockType WorldGenerator::get_subsurface_block(const BiomeType &biome, int depth, int y) const
 {
   // First few blocks
   if (depth <= 3)
@@ -224,7 +224,7 @@ BlockType WorldGenerator::get_subsurface_block(BiomeType biome, int depth, int y
   return STONE;
 }
 
-void WorldGenerator::fill_with_terrain(Block *blocks, glm::ivec3 origin, int &active_count)
+void WorldGenerator::fill_with_terrain(Block *blocks, const glm::ivec3 &origin, int &active_count) const
 {
   for (int x = 0; x < CHUNKS_SIZE; x++)
   {
@@ -293,8 +293,8 @@ void WorldGenerator::fill_with_terrain(Block *blocks, glm::ivec3 origin, int &ac
   }
 }
 
-bool WorldGenerator::should_place_tree(int x, int z, int height, BiomeType biome,
-                                       bool is_river, glm::ivec3 origin)
+bool WorldGenerator::should_place_tree(int x, int z, int height, const BiomeType &biome,
+                                       bool is_river, const glm::ivec3 &origin) const
 {
   if (is_river)
     return false;
@@ -316,7 +316,7 @@ bool WorldGenerator::should_place_tree(int x, int z, int height, BiomeType biome
   return random() < tree_density;
 }
 
-void WorldGenerator::place_tree(Block *blocks, int x, int y, int z, int &active_count)
+void WorldGenerator::place_tree(Block *blocks, int x, int y, int z, int &active_count) const
 {
   int tree_height =
       4 +

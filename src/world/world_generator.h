@@ -35,18 +35,18 @@ public:
 
   WorldGenerator();
   ~WorldGenerator() {}
-  std::vector<BiomeInfluence> get_biome_influences(int x, int z, glm::ivec3 origin);
-  BiomeType biome_from_noise(float noiseValue);
-  BiomeType get_dominant_biome(int x, int z, glm::ivec3 origin);
-  float get_river_strength(int x, int z, glm::ivec3 origin);
-  bool is_river(int x, int z, glm::ivec3 origin);
-  float get_biome_height_modifier(BiomeType biome, float baseHeight);
-  int get_height(int x, int z, glm::ivec3 origin);
-  BlockType get_surface_block(BiomeType biome, bool is_river, int y);
-  BlockType get_subsurface_block(BiomeType biome, int depth, int y);
-  void fill_with_terrain(Block *blocks, glm::ivec3 origin, int &active_count);
-  bool should_place_tree(int x, int z, int height, BiomeType biome, bool is_river, glm::ivec3 origin);
-  void place_tree(Block *blocks, int x, int y, int z, int &active_count);
+  std::vector<BiomeInfluence> get_biome_influences(int x, int z, const glm::ivec3 &origin) const;
+  BiomeType biome_from_noise(float noiseValue) const;
+  BiomeType get_dominant_biome(int x, int z, const glm::ivec3 &origin) const;
+  float get_river_strength(int x, int z, const glm::ivec3 &origin) const;
+  bool is_river(int x, int z, const glm::ivec3 &origin) const;
+  float get_biome_height_modifier(const BiomeType &biome, float baseHeight) const;
+  int get_height(int x, int z, const glm::ivec3 &origin) const;
+  BlockType get_surface_block(const BiomeType &biome, bool is_river, int y) const;
+  BlockType get_subsurface_block(const BiomeType &biome, int depth, int y) const;
+  void fill_with_terrain(Block *blocks, const glm::ivec3 &origin, int &active_count) const;
+  bool should_place_tree(int x, int z, int height, const BiomeType &biome, bool is_river, const glm::ivec3 &origin) const;
+  void place_tree(Block *blocks, int x, int y, int z, int &active_count) const;
 
 private:
   static float random()
@@ -54,7 +54,7 @@ private:
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
   }
 
-  static int ivec3_to_index(glm::ivec3 p)
+  static int ivec3_to_index(const glm::ivec3 &p)
   {
     return p.z * CHUNKS_SIZE * WORLD_HEIGHT + p.y * CHUNKS_SIZE + p.x;
   }

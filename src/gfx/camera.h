@@ -19,8 +19,8 @@ public:
   float mouse_sensitivity;
 
   Camera(Window &window, glm::vec3 pos = glm::vec3(0.0f, 0.0f, 0.0f), float yaw = -90.0f, float pitch = 0.0f);
-  glm::mat4 get_view_matrix();
-  glm::mat4 get_perspective_matrix();
+  glm::mat4 get_view_matrix() const;
+  glm::mat4 get_perspective_matrix() const;
   void keyboard_move();
   void mouse_move();
   void move();

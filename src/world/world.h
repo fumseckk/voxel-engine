@@ -26,11 +26,11 @@ struct Frustum
     planes[3] = glm::vec4(pv[0][3] - pv[0][1], pv[1][3] - pv[1][1],
                           pv[2][3] - pv[2][1], pv[3][3] - pv[3][1]);
     // Near plane
-    planes[4] = glm::vec4(pv[0][3] + pv[0][2], pv[1][3] + pv[1][2],
-                          pv[2][3] + pv[2][2], pv[3][3] + pv[3][2]);
-    // Far plane
-    planes[5] = glm::vec4(pv[0][3] - pv[0][2], pv[1][3] - pv[1][2],
+    planes[4] = glm::vec4(pv[0][3] - pv[0][2], pv[1][3] - pv[1][2],
                           pv[2][3] - pv[2][2], pv[3][3] - pv[3][2]);
+    // Far plane
+    planes[5] = glm::vec4(pv[0][3] + pv[0][2], pv[1][3] + pv[1][2],
+                          pv[2][3] + pv[2][2], pv[3][3] + pv[3][2]);
     for (int i = 0; i < 6; i++)
     {
       float length = glm::length(glm::vec3(planes[i]));

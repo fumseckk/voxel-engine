@@ -15,7 +15,13 @@ void World::prepare(const Camera &camera)
 
 ivec3 World::retrieve_chunk_coords(const ivec3 &p)
 {
-  // division rounded down for consistency in the negatives
+  // Efficient chunk coordinate calculation for negative and positive coordinates
+  // Assumes chunks_size is a power of 2 (like 16, 32, etc.)
+  const int shift = glm::log2((float)chunks_size);
+  return ivec3(
+      (p.x >> shift) - (p.x < 0 ? 1 : 0),
+      0,
+      (p.z >> shift) - (p.z < 0 ? 1 : 0));
   return floor((vec3)p / vec3(chunks_size));
 }
 Chunk World::retrieve_chunk(const ivec3 &p)
@@ -41,26 +47,39 @@ bool World::inside_frustum(const Frustum &frustum, const ivec3 &chunk_coords)
   vec3 min = vec3(chunk_coords * CHUNKS_SIZE);
   vec3 max = min + vec3(CHUNKS_SIZE, WORLD_HEIGHT, CHUNKS_SIZE);
 
+  // Calculate center and half-extents of the AABB
+  vec3 center = (min + max) * 0.5f;
+  vec3 extents = (max - min) * 0.5f;
+
+  const float EPSILON = 0.1f;
+
   // Test AABB against all frustum planes
   for (int i = 0; i < 6; i++)
   {
     const vec4 &plane = frustum.planes[i];
+    vec3 normal = vec3(plane);
 
-    // Find the positive corner (farthest in normal direction)
-    vec3 p(
-        plane.x > 0 ? max.x : min.x,
-        plane.y > 0 ? max.y : min.y,
-        plane.z > 0 ? max.z : min.z);
+    // TODO il y a un pb avec un des coins qui doit etre calculé par un min au lieu d'un max pour le z négatif, surely.
 
-    // If positive corner is outside, whole AABB is outside
-    if (dot(vec3(plane), p) + plane.w < 0)
+    // Calculate radius in the direction of the plane normal
+    float radius = extents.x * std::abs(normal.x) +
+                   extents.y * std::abs(normal.y) +
+                   extents.z * std::abs(normal.z);
+
+    // Calculate distance from center to plane
+    float distance = dot(normal, center) + plane.w;
+
+    // If distance is negative and greater than radius, the AABB is outside
+    if (distance < -radius - EPSILON)
+    {
       return false;
+    }
   }
 
   return true;
 }
 
-void World::load_close_chunks(const Frustum& frustum, const ivec3 &player_chunk_coords)
+void World::load_close_chunks(const Frustum &frustum, const ivec3 &player_chunk_coords)
 {
   visible_chunks.clear();
 
@@ -69,8 +88,10 @@ void World::load_close_chunks(const Frustum& frustum, const ivec3 &player_chunk_
     {
       float dist_sq = x * x + z * z;
       ivec3 coords = ivec3(x, 0, z) + player_chunk_coords;
-      if (dist_sq >= render_distance * render_distance) continue;
-      if (coords != player_chunk_coords && !inside_frustum(frustum, coords)) continue;
+      if (dist_sq >= render_distance * render_distance)
+        continue;
+      if (coords != player_chunk_coords && !inside_frustum(frustum, coords))
+        continue;
       visible_chunks.emplace_back(coords, dist_sq);
     }
 
@@ -99,7 +120,7 @@ void World::add_chunks_to_render_queue()
 {
   for (auto &[coords, _] : visible_chunks)
   {
-    Chunk* chunk = &chunks[coords];
+    Chunk *chunk = &chunks[coords];
     if (chunk->dirty && !chunk->meshing &&
         active_threads.size() < MAX_ACTIVE_THREADS)
     {
@@ -134,7 +155,7 @@ void World::render_chunks(const Frustum &frustum, const ivec3 &player_chunk_coor
 {
   for (auto &[coords, _] : visible_chunks)
   {
-    Chunk& chunk = chunks[coords];
+    Chunk &chunk = chunks[coords];
     if (!chunk.dirty)
     {
       shader.uniform_vec3("chunkOrigin", chunk.origin);

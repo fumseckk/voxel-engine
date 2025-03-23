@@ -22,7 +22,6 @@ ivec3 World::retrieve_chunk_coords(const ivec3 &p)
       (p.x >> shift) - (p.x < 0 ? 1 : 0),
       0,
       (p.z >> shift) - (p.z < 0 ? 1 : 0));
-  return floor((vec3)p / vec3(chunks_size));
 }
 Chunk World::retrieve_chunk(const ivec3 &p)
 {

@@ -27,14 +27,17 @@ bool Chunk::player_sees_face(const Camera &camera, const Direction &dir)
 
 Block Chunk::operator[](const ivec3 &p)
 {
-  assert(in_range(p));
+  // assert(in_range(p));
   return blocks[ivec3_to_index(p)];
 }
 
 ivec3 Chunk::retrieve_chunk_coords(const ivec3 &p)
 {
-  // division rounded down for consistency in the negatives
-  return floor((vec3)p / vec3(CHUNKS_SIZE));
+  const int shift = glm::log2((float)CHUNKS_SIZE);
+  return ivec3(
+      (p.x >> shift) - (p.x < 0 ? 1 : 0),
+      0,
+      (p.z >> shift) - (p.z < 0 ? 1 : 0));
 }
 
 bool Chunk::chunk_exists(const ivec3 &chunk_coords, const unordered_map<ivec3, Chunk> &chunks)
@@ -42,7 +45,7 @@ bool Chunk::chunk_exists(const ivec3 &chunk_coords, const unordered_map<ivec3, C
   return chunks.find(chunk_coords) != chunks.end();
 }
 
-std::optional<Block> Chunk::get_world_block(const ivec3 &world_pos, unordered_map<ivec3, Chunk>& chunks)
+std::optional<Block> Chunk::get_world_block(const ivec3 &world_pos, unordered_map<ivec3, Chunk> &chunks)
 {
   ivec3 chunk_coords = retrieve_chunk_coords(world_pos);
   if (!chunk_exists(chunk_coords, chunks))
@@ -57,7 +60,6 @@ std::optional<Block> Chunk::get_world_block(const ivec3 &world_pos, unordered_ma
 
 void Chunk::prepare_mesh_data(const WorldGenerator &generator, const unordered_map<ivec3, Chunk> &chunks)
 {
-  if (origin == ivec3(0)) printf("REMESHING 0,0,0\n");
   static glm::ivec3 dir[]{
       glm::ivec3(0, 0, 1),
       glm::ivec3(0, 0, -1),
@@ -66,7 +68,7 @@ void Chunk::prepare_mesh_data(const WorldGenerator &generator, const unordered_m
       glm::ivec3(0, -1, 0),
       glm::ivec3(0, 1, 0),
   };
-  
+
   if (active_count == 0)
     return;
   for (int d = (Direction)0; d < DIRECTION_COUNT; d++)
